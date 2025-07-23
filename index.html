@@ -49,6 +49,7 @@
             const [gameSettings, setGameSettings] = useState(null);
             const [serverMode, setServerMode] = useState(null); // null, 'guest', 'server'
             const [roomCode, setRoomCode] = useState('');
+            const [clubName, setClubName] = useState('');
             const [showAuthModal, setShowAuthModal] = useState(true);
             const [sharedMeetingId, setSharedMeetingId] = useState(null);
             const [copyData, setCopyData] = useState(null);
@@ -70,6 +71,7 @@
                     const savedMeetings = localStorage.getItem('tennis-meetings');
                     const savedMode = localStorage.getItem('tennis-server-mode');
                     const savedRoomCode = localStorage.getItem('tennis-room-code');
+                    const savedClubName = localStorage.getItem('tennis-club-name');
                     
                     if (savedMeetings) {
                         try {
@@ -82,6 +84,7 @@
                     if (savedMode) {
                         setServerMode(savedMode);
                         setRoomCode(savedRoomCode || '');
+                        setClubName(savedClubName || '');
                         setShowAuthModal(false);
                     }
                 }
@@ -136,15 +139,19 @@
                 }
             };
 
-            const handleAuthMode = (mode, code = '') => {
+            const handleAuthMode = (mode, code = '', club = '') => {
                 setServerMode(mode);
                 setRoomCode(code);
+                setClubName(club);
                 setShowAuthModal(false);
                 
                 // 설정 저장
                 localStorage.setItem('tennis-server-mode', mode);
                 if (code) {
                     localStorage.setItem('tennis-room-code', code);
+                }
+                if (club) {
+                    localStorage.setItem('tennis-club-name', club);
                 }
                 
                 if (mode === 'server' && code) {
@@ -165,7 +172,10 @@
 
             const screens = {
                 main: <MainScreen 
-                    meetings={meetings} 
+                    meetings={meetings}
+                    serverMode={serverMode}
+                    roomCode={roomCode}
+                    clubName={clubName}
                     onAddMeeting={(copyMeetingData) => {
                         setCopyData(copyMeetingData);
                         setCurrentScreen('create');
@@ -180,6 +190,7 @@
                             setCurrentScreen('settings');
                         }
                     }}
+                    onJoinRoom={handleAuthMode}
                 />,
                 create: <CreateMeetingScreen 
                     onBack={() => {
@@ -230,8 +241,20 @@
         // 인증 모달 컴포넌트
         function AuthModal({ onAuth }) {
             const [inputCode, setInputCode] = useState('');
+            const [clubName, setClubName] = useState('');
             const [showCodeInput, setShowCodeInput] = useState(false);
+            const [showCreateNew, setShowCreateNew] = useState(false);
             const [error, setError] = useState('');
+
+            // 랜덤 코드 생성 함수
+            const generateRandomCode = () => {
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+                let result = '';
+                for (let i = 0; i < 4; i++) {
+                    result += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                return result;
+            };
 
             const handleServerMode = () => {
                 if (!inputCode.trim()) {
@@ -243,6 +266,19 @@
                     return;
                 }
                 onAuth('server', inputCode.trim());
+            };
+
+            const handleCreateNew = () => {
+                if (!clubName.trim()) {
+                    setError('테니스 클럽 이름을 입력해주세요.');
+                    return;
+                }
+                if (clubName.trim().length < 2) {
+                    setError('클럽 이름은 2글자 이상이어야 합니다.');
+                    return;
+                }
+                const newCode = generateRandomCode();
+                onAuth('server', newCode, clubName.trim());
             };
 
             const handleGuestMode = () => {
@@ -257,13 +293,19 @@
                             <p className="text-gray-600">어떻게 사용하시겠습니까?</p>
                         </div>
 
-                        {!showCodeInput ? (
+                        {!showCodeInput && !showCreateNew ? (
                             <div className="space-y-4">
                                 <button
-                                    onClick={() => setShowCodeInput(true)}
+                                    onClick={() => setShowCreateNew(true)}
                                     className="btn-primary w-full"
                                 >
-                                    코드 입력하기
+                                    새로 시작하기
+                                </button>
+                                <button
+                                    onClick={() => setShowCodeInput(true)}
+                                    className="btn-secondary w-full"
+                                >
+                                    코드 입력하기 (이어하기)
                                 </button>
                                 <button
                                     onClick={handleGuestMode}
@@ -274,6 +316,50 @@
                                 <p className="text-sm text-gray-500 text-center">
                                     게스트로 진행시 서버에 데이터가 저장되지 않습니다
                                 </p>
+                            </div>
+                        ) : showCreateNew ? (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-gray-700 font-medium mb-2">
+                                        테니스 클럽명을 입력하세요
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={clubName}
+                                        onChange={(e) => {
+                                            setClubName(e.target.value);
+                                            setError('');
+                                        }}
+                                        placeholder="예: 파미르 테니스 클럽"
+                                        className="input-field"
+                                        maxLength={30}
+                                        autoFocus
+                                    />
+                                    {error && (
+                                        <p className="text-red-500 text-sm mt-2">{error}</p>
+                                    )}
+                                    <p className="text-sm text-gray-500 mt-2">
+                                        새로운 코드가 자동 생성됩니다
+                                    </p>
+                                </div>
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={handleCreateNew}
+                                        className="btn-primary flex-1"
+                                    >
+                                        시작하기
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowCreateNew(false);
+                                            setClubName('');
+                                            setError('');
+                                        }}
+                                        className="btn-secondary flex-1"
+                                    >
+                                        뒤로
+                                    </button>
+                                </div>
                             </div>
                         ) : (
                             <div className="space-y-4">
@@ -323,11 +409,12 @@
         }
 
         // 메인 화면 컴포넌트
-        function MainScreen({ meetings, onAddMeeting, onSelectMeeting }) {
+        function MainScreen({ meetings, serverMode, roomCode, clubName, onAddMeeting, onSelectMeeting, onJoinRoom }) {
             const [showAddForm, setShowAddForm] = useState(false);
             const [meetingName, setMeetingName] = useState('');
             const [error, setError] = useState('');
             const [showCopyModal, setShowCopyModal] = useState(false);
+            const [showJoinModal, setShowJoinModal] = useState(false);
 
             const handleAddMeeting = () => {
                 if (!meetingName.trim()) {
@@ -361,8 +448,26 @@
                 <div className="p-4">
                     <div className="text-center mb-8">
                         <h1 className="text-3xl font-bold text-gray-800 mb-2">테니스 점수판</h1>
+                        {serverMode === 'server' && clubName && roomCode && (
+                            <div className="mb-3">
+                                <span className="text-blue-600 font-medium">{clubName}</span>
+                                <span className="text-gray-500 ml-2">({roomCode})</span>
+                            </div>
+                        )}
                         <p className="text-gray-600">모임을 선택하거나 새로 만드세요.</p>
                     </div>
+
+                    {/* 코드 입력하여 모임으로 이동 버튼 */}
+                    {serverMode !== 'server' && (
+                        <div className="mb-6">
+                            <button 
+                                className="btn-secondary w-full"
+                                onClick={() => setShowJoinModal(true)}
+                            >
+                                🔗 코드 입력하여 모임으로 이동
+                            </button>
+                        </div>
+                    )}
 
                     {/* 기존 모임 목록 */}
                     <div className="mb-6">
@@ -449,6 +554,88 @@
                             onSelect={onAddMeeting}
                         />
                     )}
+
+                    {/* 코드 입력 모달 */}
+                    {showJoinModal && (
+                        <JoinRoomModal 
+                            onClose={() => setShowJoinModal(false)}
+                            onJoin={(code) => {
+                                onJoinRoom('server', code);
+                                setShowJoinModal(false);
+                            }}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // 코드 입력 모달 컴포넌트
+        function JoinRoomModal({ onClose, onJoin }) {
+            const [inputCode, setInputCode] = useState('');
+            const [error, setError] = useState('');
+
+            const handleJoin = () => {
+                if (!inputCode.trim()) {
+                    setError('코드를 입력해주세요.');
+                    return;
+                }
+                if (inputCode.trim().length < 4) {
+                    setError('코드는 4자리 이상이어야 합니다.');
+                    return;
+                }
+                onJoin(inputCode.trim());
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-md p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold">모임 코드 입력</h3>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-500 text-xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2">
+                                    모임 코드를 입력하세요
+                                </label>
+                                <input
+                                    type="text"
+                                    value={inputCode}
+                                    onChange={(e) => {
+                                        setInputCode(e.target.value);
+                                        setError('');
+                                    }}
+                                    placeholder="예: ABCD1234"
+                                    className="input-field"
+                                    maxLength={20}
+                                    autoFocus
+                                />
+                                {error && (
+                                    <p className="text-red-500 text-sm mt-2">{error}</p>
+                                )}
+                            </div>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={handleJoin}
+                                    className="btn-primary flex-1"
+                                >
+                                    입장하기
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    className="btn-secondary flex-1"
+                                >
+                                    취소
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             );
         }
