@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테니스 점수판</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn-primary {
+            @apply bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg shadow-md transition-colors duration-200;
+        }
+        .btn-secondary {
+            @apply bg-gray-500 hover:bg-gray-600 text-white font-medium py-3 px-6 rounded-lg shadow-md transition-colors duration-200;
+        }
+        .btn-danger {
+            @apply bg-red-500 hover:bg-red-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors duration-200;
+        }
+        .input-field {
+            @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+        }
+        .select-field {
+            @apply w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        // 메인 앱 컴포넌트
+        function TennisScoreboardApp() {
+            const [currentScreen, setCurrentScreen] = useState('main');
+            const [meetings, setMeetings] = useState([]);
+            const [currentMeeting, setCurrentMeeting] = useState(null);
+            const [gameSettings, setGameSettings] = useState(null);
+            const [serverMode, setServerMode] = useState(null); // null, 'guest', 'server'
+            const [roomCode, setRoomCode] = useState('');
+            const [showAuthModal, setShowAuthModal] = useState(true);
+            const [sharedMeetingId, setSharedMeetingId] = useState(null);
+            const [copyData, setCopyData] = useState(null);
+
+            // 초기화 및 URL 파라미터 확인
+            useEffect(() => {
+                // URL에서 공유 링크 확인
+                const urlParams = new URLSearchParams(window.location.search);
+                const shareId = urlParams.get('share');
+                
+                if (shareId) {
+                    setSharedMeetingId(shareId);
+                    setShowAuthModal(false);
+                    setServerMode('guest');
+                    // 공유된 모임 데이터 로드 (서버에서)
+                    loadSharedMeeting(shareId);
+                } else {
+                    // 로컬 스토리지에서 데이터 로드
+                    const savedMeetings = localStorage.getItem('tennis-meetings');
+                    const savedMode = localStorage.getItem('tennis-server-mode');
+                    const savedRoomCode = localStorage.getItem('tennis-room-code');
+                    
+                    if (savedMeetings) {
+                        try {
+                            setMeetings(JSON.parse(savedMeetings));
+                        } catch (error) {
+                            console.error('데이터 로드 실패:', error);
+                        }
+                    }
+                    
+                    if (savedMode) {
+                        setServerMode(savedMode);
+                        setRoomCode(savedRoomCode || '');
+                        setShowAuthModal(false);
+                    }
+                }
+            }, []);
+
+            const loadSharedMeeting = async (shareId) => {
+                try {
+                    // 여기서 서버 API 호출
+                    console.log('공유된 모임 로드:', shareId);
+                    // 임시로 로컬 데이터에서 찾기
+                    const savedMeetings = localStorage.getItem('tennis-meetings');
+                    if (savedMeetings) {
+                        const meetings = JSON.parse(savedMeetings);
+                        const sharedMeeting = meetings.find(m => m.id.toString() === shareId);
+                        if (sharedMeeting) {
+                            setCurrentMeeting(sharedMeeting);
+                            if (sharedMeeting.gameSettings) {
+                                setGameSettings(sharedMeeting.gameSettings);
+                                setCurrentScreen('game');
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('공유 모임 로드 실패:', error);
+                    alert('공유 링크를 불러올 수 없습니다.');
+                }
+            };
+
+            // 데이터 저장
+            const saveMeetings = useCallback((updatedMeetings) => {
+                try {
+                    if (serverMode === 'server') {
+                        // 서버에 저장 (API 호출)
+                        saveToServer(updatedMeetings);
+                    } else {
+                        // 로컬 저장
+                        localStorage.setItem('tennis-meetings', JSON.stringify(updatedMeetings));
+                    }
+                    setMeetings(updatedMeetings);
+                } catch (error) {
+                    alert('저장 중 오류가 발생했습니다.');
+                }
+            }, [serverMode]);
+
+            const saveToServer = async (meetings) => {
+                try {
+                    // 여기서 서버 API 호출
+                    console.log('서버에 저장:', { roomCode, meetings });
+                    // 실제 구현시 fetch API 사용
+                } catch (error) {
+                    console.error('서버 저장 실패:', error);
+                }
+            };
+
+            const handleAuthMode = (mode, code = '') => {
+                setServerMode(mode);
+                setRoomCode(code);
+                setShowAuthModal(false);
+                
+                // 설정 저장
+                localStorage.setItem('tennis-server-mode', mode);
+                if (code) {
+                    localStorage.setItem('tennis-room-code', code);
+                }
+                
+                if (mode === 'server' && code) {
+                    // 서버에서 기존 모임 데이터 로드
+                    loadFromServer(code);
+                }
+            };
+
+            const loadFromServer = async (code) => {
+                try {
+                    // 여기서 서버 API 호출
+                    console.log('서버에서 데이터 로드:', code);
+                    // 실제 구현시 fetch API 사용
+                } catch (error) {
+                    console.error('서버 데이터 로드 실패:', error);
+                }
+            };
+
+            const screens = {
+                main: <MainScreen 
+                    meetings={meetings} 
+                    onAddMeeting={(copyMeetingData) => {
+                        setCopyData(copyMeetingData);
+                        setCurrentScreen('create');
+                    }}
+                    onSelectMeeting={(meeting) => {
+                        setCurrentMeeting(meeting);
+                        // 기존 모임인 경우 저장된 gameSettings가 있으면 사용, 없으면 설정 화면으로
+                        if (meeting.gameSettings) {
+                            setGameSettings(meeting.gameSettings);
+                            setCurrentScreen('game');
+                        } else {
+                            setCurrentScreen('settings');
+                        }
+                    }}
+                />,
+                create: <CreateMeetingScreen 
+                    onBack={() => {
+                        setCopyData(null);
+                        setCurrentScreen('main');
+                    }}
+                    onNext={(meetingData) => {
+                        setCurrentMeeting(meetingData);
+                        setCopyData(null);
+                        setCurrentScreen('settings');
+                    }}
+                    initialData={copyData}
+                />,
+                settings: <GameSettingsScreen 
+                    meetingData={currentMeeting}
+                    onBack={() => setCurrentScreen('create')}
+                    onNext={(settings) => {
+                        setGameSettings(settings);
+                        setCurrentScreen('game');
+                    }}
+                />,
+                game: <GameScreen 
+                    meetingData={currentMeeting}
+                    gameSettings={gameSettings}
+                    onBack={() => setCurrentScreen('main')}
+                    onSave={(updatedMeeting) => {
+                        const updatedMeetings = meetings.map(m => 
+                            m.id === updatedMeeting.id ? updatedMeeting : m
+                        );
+                        if (!meetings.find(m => m.id === updatedMeeting.id)) {
+                            updatedMeetings.push(updatedMeeting);
+                        }
+                        saveMeetings(updatedMeetings);
+                    }}
+                />
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {screens[currentScreen]}
+                    
+                    {/* 인증 모달 */}
+                    {showAuthModal && <AuthModal onAuth={handleAuthMode} />}
+                </div>
+            );
+        }
+
+        // 인증 모달 컴포넌트
+        function AuthModal({ onAuth }) {
+            const [inputCode, setInputCode] = useState('');
+            const [showCodeInput, setShowCodeInput] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleServerMode = () => {
+                if (!inputCode.trim()) {
+                    setError('코드를 입력해주세요.');
+                    return;
+                }
+                if (inputCode.trim().length < 4) {
+                    setError('코드는 4자리 이상이어야 합니다.');
+                    return;
+                }
+                onAuth('server', inputCode.trim());
+            };
+
+            const handleGuestMode = () => {
+                onAuth('guest');
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-md p-6">
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">테니스 점수판</h2>
+                            <p className="text-gray-600">어떻게 사용하시겠습니까?</p>
+                        </div>
+
+                        {!showCodeInput ? (
+                            <div className="space-y-4">
+                                <button
+                                    onClick={() => setShowCodeInput(true)}
+                                    className="btn-primary w-full"
+                                >
+                                    코드 입력하기
+                                </button>
+                                <button
+                                    onClick={handleGuestMode}
+                                    className="btn-secondary w-full"
+                                >
+                                    게스트로 진행
+                                </button>
+                                <p className="text-sm text-gray-500 text-center">
+                                    게스트로 진행시 서버에 데이터가 저장되지 않습니다
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-gray-700 font-medium mb-2">
+                                        모임 코드를 입력하세요
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={inputCode}
+                                        onChange={(e) => {
+                                            setInputCode(e.target.value);
+                                            setError('');
+                                        }}
+                                        placeholder="예: ABCD1234"
+                                        className="input-field"
+                                        maxLength={20}
+                                        autoFocus
+                                    />
+                                    {error && (
+                                        <p className="text-red-500 text-sm mt-2">{error}</p>
+                                    )}
+                                </div>
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={handleServerMode}
+                                        className="btn-primary flex-1"
+                                    >
+                                        확인
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setShowCodeInput(false);
+                                            setInputCode('');
+                                            setError('');
+                                        }}
+                                        className="btn-secondary flex-1"
+                                    >
+                                        뒤로
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        // 메인 화면 컴포넌트
+        function MainScreen({ meetings, onAddMeeting, onSelectMeeting }) {
+            const [showAddForm, setShowAddForm] = useState(false);
+            const [meetingName, setMeetingName] = useState('');
+            const [error, setError] = useState('');
+            const [showCopyModal, setShowCopyModal] = useState(false);
+
+            const handleAddMeeting = () => {
+                if (!meetingName.trim()) {
+                    setError('모임 이름을 입력해주세요.');
+                    return;
+                }
+                if (meetingName.trim().length < 2) {
+                    setError('모임 이름은 2글자 이상 입력해주세요.');
+                    return;
+                }
+                
+                const newMeeting = {
+                    id: Date.now(),
+                    name: meetingName.trim(),
+                    createdAt: new Date().toISOString()
+                };
+                
+                setMeetingName('');
+                setShowAddForm(false);
+                setError('');
+                onAddMeeting();
+            };
+
+            const handleCancel = () => {
+                setMeetingName('');
+                setShowAddForm(false);
+                setError('');
+            };
+
+            return (
+                <div className="p-4">
+                    <div className="text-center mb-8">
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">테니스 점수판</h1>
+                        <p className="text-gray-600">모임을 선택하거나 새로 만드세요.</p>
+                    </div>
+
+                    {/* 기존 모임 목록 */}
+                    <div className="mb-6">
+                        {meetings.length > 0 && (
+                            <div className="space-y-3">
+                                <h2 className="text-lg font-semibold text-gray-700 mb-3">기존 모임</h2>
+                                {meetings.map(meeting => (
+                                    <div 
+                                        key={meeting.id}
+                                        className="bg-white p-4 rounded-lg shadow-md border border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                                        onClick={() => onSelectMeeting(meeting)}
+                                    >
+                                        <h3 className="font-medium text-gray-800">{meeting.name}</h3>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                            생성일: {new Date(meeting.createdAt).toLocaleDateString('ko-KR')}
+                                        </p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 새 모임 추가 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+                        {!showAddForm ? (
+                            <div className="space-y-3">
+                                <button 
+                                    className="btn-primary w-full"
+                                    onClick={() => setShowAddForm(true)}
+                                >
+                                    + 새 모임 추가하기
+                                </button>
+                                {meetings.length > 0 && (
+                                    <button 
+                                        className="btn-secondary w-full"
+                                        onClick={() => setShowCopyModal(true)}
+                                    >
+                                        📋 기존 모임 기준 새 모임 추가하기
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <h3 className="font-medium text-gray-800">새 모임 만들기</h3>
+                                <div>
+                                    <input
+                                        type="text"
+                                        placeholder="모임 이름을 입력하세요"
+                                        value={meetingName}
+                                        onChange={(e) => {
+                                            setMeetingName(e.target.value);
+                                            setError('');
+                                        }}
+                                        className="input-field"
+                                        maxLength={20}
+                                    />
+                                    {error && (
+                                        <p className="text-red-500 text-sm mt-2">{error}</p>
+                                    )}
+                                </div>
+                                <div className="flex space-x-3">
+                                    <button 
+                                        className="btn-primary flex-1"
+                                        onClick={handleAddMeeting}
+                                    >
+                                        다음
+                                    </button>
+                                    <button 
+                                        className="btn-secondary flex-1"
+                                        onClick={handleCancel}
+                                    >
+                                        취소
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 기존 모임 선택 모달 */}
+                    {showCopyModal && (
+                        <CopyMeetingModal 
+                            meetings={meetings}
+                            onClose={() => setShowCopyModal(false)}
+                            onSelect={onAddMeeting}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // 기존 모임 복사 모달 컴포넌트
+        function CopyMeetingModal({ meetings, onClose, onSelect }) {
+            const handleSelectMeeting = (meeting) => {
+                // 기존 모임 데이터를 CreateMeetingScreen으로 전달
+                const meetingData = {
+                    ...meeting,
+                    id: Date.now(), // 새 ID 생성
+                    name: '', // 이름은 비워두기
+                    date: new Date().toISOString().split('T')[0], // 오늘 날짜로 설정
+                    createdAt: new Date().toISOString()
+                };
+                onSelect(meetingData);
+                onClose();
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-md max-h-96 overflow-y-auto">
+                        <div className="p-4 border-b flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">기존 모임 선택</h3>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-500 text-xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div className="p-4">
+                            <p className="text-sm text-gray-600 mb-4">
+                                복사할 모임을 선택하세요. 멤버 정보가 복사됩니다.
+                            </p>
+                            <div className="space-y-3">
+                                {meetings.map(meeting => (
+                                    <div 
+                                        key={meeting.id}
+                                        className="border rounded-lg p-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                                        onClick={() => handleSelectMeeting(meeting)}
+                                    >
+                                        <div className="font-medium text-gray-800 mb-2">
+                                            {meeting.name}
+                                        </div>
+                                        <div className="text-sm text-gray-600 space-y-1">
+                                            <div>날짜: {meeting.date}</div>
+                                            <div>멤버: {meeting.members?.length || 0}명</div>
+                                            {meeting.members && meeting.members.length > 0 && (
+                                                <div className="text-xs">
+                                                    {meeting.members.slice(0, 3).map(m => m.name).join(', ')}
+                                                    {meeting.members.length > 3 && ` 외 ${meeting.members.length - 3}명`}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // 게임 설정 화면 컴포넌트
+        function GameSettingsScreen({ meetingData, onBack, onNext }) {
+            const [matchType, setMatchType] = useState('random'); // random, skill, gender, both
+            const [gameType, setGameType] = useState(6); // 4 or 6
+            const [courtCount, setCourtCount] = useState(2);
+            const [matchCount, setMatchCount] = useState(6);
+
+            const matchTypeOptions = [
+                { value: 'random', label: '실력/성별 완전 랜덤' },
+                { value: 'skill', label: '실력만 분리' },
+                { value: 'gender', label: '남녀만 분리' },
+                { value: 'both', label: '실력/성별 완전 분리' }
+            ];
+
+            const handleNext = () => {
+                const settings = {
+                    matchType,
+                    gameType,
+                    courtCount,
+                    matchCount
+                };
+                onNext(settings);
+            };
+
+            return (
+                <div className="p-4">
+                    <div className="flex items-center mb-6">
+                        <button 
+                            onClick={onBack}
+                            className="text-blue-500 mr-3 text-lg"
+                        >
+                            ← 뒤로
+                        </button>
+                        <h1 className="text-2xl font-bold text-gray-800">경기 설정</h1>
+                    </div>
+
+                    {/* 대전 구축 방식 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-4">대전 구축 방식</h2>
+                        <div className="space-y-3">
+                            {matchTypeOptions.map(option => (
+                                <label key={option.value} className="flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="matchType"
+                                        value={option.value}
+                                        checked={matchType === option.value}
+                                        onChange={(e) => setMatchType(e.target.value)}
+                                        className="mr-3"
+                                    />
+                                    <span className="text-gray-700">{option.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 게임 설정 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-4">게임 설정</h2>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2">게임 형식</label>
+                                <div className="flex space-x-4">
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="gameType"
+                                            value={4}
+                                            checked={gameType === 4}
+                                            onChange={(e) => setGameType(parseInt(e.target.value))}
+                                            className="mr-2"
+                                        />
+                                        <span>4게임</span>
+                                    </label>
+                                    <label className="flex items-center">
+                                        <input
+                                            type="radio"
+                                            name="gameType"
+                                            value={6}
+                                            checked={gameType === 6}
+                                            onChange={(e) => setGameType(parseInt(e.target.value))}
+                                            className="mr-2"
+                                        />
+                                        <span>6게임</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2">코트 개수</label>
+                                <input
+                                    type="number"
+                                    value={courtCount}
+                                    onChange={(e) => setCourtCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                    min="1"
+                                    max="4"
+                                    className="input-field"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-gray-700 font-medium mb-2">매치 수</label>
+                                <input
+                                    type="number"
+                                    value={matchCount}
+                                    onChange={(e) => setMatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                                    min="1"
+                                    max="10"
+                                    className="input-field"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <button
+                        onClick={handleNext}
+                        className="btn-primary w-full"
+                    >
+                        경기 시작
+                    </button>
+                </div>
+            );
+        }
+
+        // 모임 생성 화면 컴포넌트
+        function CreateMeetingScreen({ onBack, onNext, initialData }) {
+            const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+            const [members, setMembers] = useState(initialData?.members ? 
+                initialData.members.map((member, i) => ({
+                    ...member,
+                    id: i // ID 재할당
+                })) : 
+                Array(8).fill(null).map((_, i) => ({
+                    id: i,
+                    name: '',
+                    gender: '남',
+                    skill: 5
+                }))
+            );
+            const [meetingName, setMeetingName] = useState(initialData?.name || '');
+            const [showRandomModal, setShowRandomModal] = useState(false);
+            const [randomCount, setRandomCount] = useState(8);
+            const [errors, setErrors] = useState({});
+
+            const addMember = () => {
+                const newMember = {
+                    id: Date.now(),
+                    name: '',
+                    gender: '남',
+                    skill: 5
+                };
+                setMembers([...members, newMember]);
+            };
+
+            const removeMember = (id) => {
+                if (members.length <= 4) {
+                    alert('최소 4명의 멤버가 필요합니다.');
+                    return;
+                }
+                if (window.confirm('이 멤버를 삭제하시겠습니까?')) {
+                    setMembers(members.filter(m => m.id !== id));
+                }
+            };
+
+            const updateMember = (id, field, value) => {
+                setMembers(members.map(m => 
+                    m.id === id ? { ...m, [field]: value } : m
+                ));
+                if (errors[id]) {
+                    setErrors({ ...errors, [id]: null });
+                }
+            };
+
+            const generateRandomMembers = () => {
+                const randomMembers = Array(randomCount).fill(null).map((_, i) => {
+                    const charA = String.fromCharCode(65 + i); // A, B, C...
+                    return {
+                        id: Date.now() + i,
+                        name: charA + charA + charA, // AAA, BBB, CCC...
+                        gender: '남', // 동일하게 설정
+                        skill: 5 // 동일하게 설정
+                    };
+                });
+                setMembers(randomMembers);
+                setShowRandomModal(false);
+            };
+
+            const validateAndProceed = () => {
+                const newErrors = {};
+                const filledMembers = members.filter(m => m.name.trim());
+                
+                if (filledMembers.length < 4) {
+                    alert('최소 4명의 멤버가 필요합니다.');
+                    return;
+                }
+
+                filledMembers.forEach(member => {
+                    if (!member.name.trim()) {
+                        newErrors[member.id] = '이름을 입력해주세요.';
+                    } else if (member.name.trim().length < 2) {
+                        newErrors[member.id] = '이름은 2글자 이상 입력해주세요.';
+                    }
+                });
+
+                if (Object.keys(newErrors).length > 0) {
+                    setErrors(newErrors);
+                    return;
+                }
+
+                const meetingData = {
+                    id: Date.now(),
+                    name: meetingName || `${date} 테니스 모임`,
+                    date,
+                    members: filledMembers,
+                    createdAt: new Date().toISOString()
+                };
+                
+                onNext(meetingData);
+            };
+
+            return (
+                <div className="p-4">
+                    <div className="flex items-center mb-6">
+                        <button 
+                            onClick={onBack}
+                            className="text-blue-500 mr-3 text-lg"
+                        >
+                            ← 뒤로
+                        </button>
+                        <h1 className="text-2xl font-bold text-gray-800">모임 설정</h1>
+                    </div>
+
+                    {/* 모임 이름 입력 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <label className="block text-gray-700 font-medium mb-2">모임 이름 (선택사항)</label>
+                        <input
+                            type="text"
+                            value={meetingName}
+                            onChange={(e) => setMeetingName(e.target.value)}
+                            placeholder="비워두면 자동으로 생성됩니다"
+                            className="input-field"
+                            maxLength={30}
+                        />
+                    </div>
+
+                    {/* 날짜 입력 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <label className="block text-gray-700 font-medium mb-2">경기 날짜</label>
+                        <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className="input-field"
+                        />
+                    </div>
+
+                    {/* 멤버 입력 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-4">멤버 ({members.filter(m => m.name.trim()).length}명)</h2>
+                        
+                        <div className="space-y-3">
+                            {members.map(member => (
+                                <div key={member.id} className="flex items-center space-x-2">
+                                    <div className="flex-1">
+                                        <input
+                                            type="text"
+                                            placeholder="이름"
+                                            value={member.name}
+                                            onChange={(e) => updateMember(member.id, 'name', e.target.value)}
+                                            className={`input-field text-sm ${errors[member.id] ? 'border-red-500' : ''}`}
+                                            maxLength={10}
+                                        />
+                                        {errors[member.id] && (
+                                            <p className="text-red-500 text-xs mt-1">{errors[member.id]}</p>
+                                        )}
+                                    </div>
+                                    <select
+                                        value={member.gender}
+                                        onChange={(e) => updateMember(member.id, 'gender', e.target.value)}
+                                        className="select-field text-sm w-20"
+                                    >
+                                        <option value="남">남</option>
+                                        <option value="여">여</option>
+                                        <option value="없음">없음</option>
+                                    </select>
+                                    <select
+                                        value={member.skill}
+                                        onChange={(e) => updateMember(member.id, 'skill', parseInt(e.target.value))}
+                                        className="select-field text-sm w-16"
+                                    >
+                                        {Array.from({length: 10}, (_, i) => (
+                                            <option key={i+1} value={i+1}>{i+1}</option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={() => removeMember(member.id)}
+                                        className="text-red-500 text-lg px-2"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={addMember}
+                            className="btn-secondary w-full mt-4"
+                        >
+                            + 멤버 추가
+                        </button>
+                    </div>
+
+                    {/* 하단 버튼들 */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={validateAndProceed}
+                            className="btn-primary w-full"
+                        >
+                            입력 완료
+                        </button>
+                        <button
+                            onClick={() => setShowRandomModal(true)}
+                            className="btn-secondary w-full"
+                        >
+                            랜덤 생성
+                        </button>
+                    </div>
+
+                    {/* 랜덤 생성 모달 */}
+                    {showRandomModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                            <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+                                <h3 className="text-lg font-semibold mb-4">랜덤 멤버 생성</h3>
+                                <p className="text-sm text-gray-600 mb-4">몇 명으로 생성하시겠습니까?</p>
+                                <input
+                                    type="number"
+                                    value={randomCount}
+                                    onChange={(e) => setRandomCount(Math.max(4, Math.min(26, parseInt(e.target.value) || 4)))}
+                                    min="4"
+                                    max="26"
+                                    className="input-field mb-4"
+                                />
+                                <div className="flex space-x-3">
+                                    <button
+                                        onClick={generateRandomMembers}
+                                        className="btn-primary flex-1"
+                                    >
+                                        생성
+                                    </button>
+                                    <button
+                                        onClick={() => setShowRandomModal(false)}
+                                        className="btn-secondary flex-1"
+                                    >
+                                        취소
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // 게임 진행 화면 컴포넌트
+        function GameScreen({ meetingData, gameSettings, onBack, onSave }) {
+            const [gameResults, setGameResults] = useState({});
+            const [rankings, setRankings] = useState({});
+            const [matches, setMatches] = useState([]);
+            const [showSummary, setShowSummary] = useState(false);
+
+            // 매치 생성 함수
+            const generateMatches = useCallback(() => {
+                if (!meetingData || !gameSettings) {
+                    console.log('매치 생성 실패: 데이터 없음', { meetingData, gameSettings });
+                    return [];
+                }
+
+                const members = [...meetingData.members];
+                const { matchType, courtCount, matchCount } = gameSettings;
+                
+                console.log('매치 생성 파라미터:', { members: members.length, matchType, courtCount, matchCount });
+                const generatedMatches = [];
+
+                // 매치 생성 로직
+                for (let i = 0; i < matchCount; i++) {
+                    const matchCourts = [];
+                    let availableMembers = [...members];
+                    
+                    for (let court = 0; court < courtCount && availableMembers.length >= 4; court++) {
+                        let team1, team2;
+                        
+                        switch (matchType) {
+                            case 'skill':
+                                // 실력별 분리 매칭
+                                const skillSorted = availableMembers.sort((a, b) => b.skill - a.skill);
+                                const highSkill = skillSorted.slice(0, Math.floor(skillSorted.length / 2));
+                                const lowSkill = skillSorted.slice(Math.floor(skillSorted.length / 2));
+                                
+                                if (Math.random() > 0.5 && highSkill.length >= 4) {
+                                    team1 = [highSkill[0], highSkill[1]];
+                                    team2 = [highSkill[2], highSkill[3]];
+                                    availableMembers = availableMembers.filter(m => 
+                                        !team1.includes(m) && !team2.includes(m)
+                                    );
+                                } else if (lowSkill.length >= 4) {
+                                    team1 = [lowSkill[0], lowSkill[1]];
+                                    team2 = [lowSkill[2], lowSkill[3]];
+                                    availableMembers = availableMembers.filter(m => 
+                                        !team1.includes(m) && !team2.includes(m)
+                                    );
+                                } else {
+                                    // 랜덤 매칭으로 폴백
+                                    team1 = [
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                    ];
+                                    team2 = [
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                    ];
+                                }
+                                break;
+                                
+                            case 'gender':
+                                // 성별 분리 매칭
+                                const males = availableMembers.filter(m => m.gender === '남');
+                                const females = availableMembers.filter(m => m.gender === '여');
+                                const others = availableMembers.filter(m => m.gender === '없음');
+                                
+                                if (males.length >= 4) {
+                                    team1 = [males[0], males[1]];
+                                    team2 = [males[2], males[3]];
+                                    availableMembers = availableMembers.filter(m => 
+                                        !team1.includes(m) && !team2.includes(m)
+                                    );
+                                } else if (females.length >= 4) {
+                                    team1 = [females[0], females[1]];
+                                    team2 = [females[2], females[3]];
+                                    availableMembers = availableMembers.filter(m => 
+                                        !team1.includes(m) && !team2.includes(m)
+                                    );
+                                } else if (others.length >= 4) {
+                                    team1 = [others[0], others[1]];
+                                    team2 = [others[2], others[3]];
+                                    availableMembers = availableMembers.filter(m => 
+                                        !team1.includes(m) && !team2.includes(m)
+                                    );
+                                } else {
+                                    // 혼성 매칭
+                                    team1 = [
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                    ];
+                                    team2 = [
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                    ];
+                                }
+                                break;
+                                
+                            case 'both':
+                                // 실력과 성별 모두 고려
+                                const maleHigh = availableMembers.filter(m => m.gender === '남' && m.skill >= 6);
+                                const maleLow = availableMembers.filter(m => m.gender === '남' && m.skill < 6);
+                                const femaleHigh = availableMembers.filter(m => m.gender === '여' && m.skill >= 6);
+                                const femaleLow = availableMembers.filter(m => m.gender === '여' && m.skill < 6);
+                                const otherHigh = availableMembers.filter(m => m.gender === '없음' && m.skill >= 6);
+                                const otherLow = availableMembers.filter(m => m.gender === '없음' && m.skill < 6);
+                                
+                                if (maleHigh.length >= 4) {
+                                    team1 = [maleHigh[0], maleHigh[1]];
+                                    team2 = [maleHigh[2], maleHigh[3]];
+                                } else if (maleLow.length >= 4) {
+                                    team1 = [maleLow[0], maleLow[1]];
+                                    team2 = [maleLow[2], maleLow[3]];
+                                } else if (femaleHigh.length >= 4) {
+                                    team1 = [femaleHigh[0], femaleHigh[1]];
+                                    team2 = [femaleHigh[2], femaleHigh[3]];
+                                } else if (femaleLow.length >= 4) {
+                                    team1 = [femaleLow[0], femaleLow[1]];
+                                    team2 = [femaleLow[2], femaleLow[3]];
+                                } else if (otherHigh.length >= 4) {
+                                    team1 = [otherHigh[0], otherHigh[1]];
+                                    team2 = [otherHigh[2], otherHigh[3]];
+                                } else if (otherLow.length >= 4) {
+                                    team1 = [otherLow[0], otherLow[1]];
+                                    team2 = [otherLow[2], otherLow[3]];
+                                } else {
+                                    // 랜덤 매칭으로 폴백
+                                    team1 = [
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                    ];
+                                    team2 = [
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                    ];
+                                }
+                                
+                                if (team1 && team2) {
+                                    availableMembers = availableMembers.filter(m => 
+                                        !team1.includes(m) && !team2.includes(m)
+                                    );
+                                }
+                                break;
+                                
+                            default: // 'random'
+                                // 완전 랜덤 매칭
+                                team1 = [
+                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                ];
+                                team2 = [
+                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
+                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
+                                ];
+                                break;
+                        }
+
+                        if (team1 && team2 && team1.length === 2 && team2.length === 2) {
+                            matchCourts.push({
+                                courtId: court,
+                                team1: team1.filter(Boolean),
+                                team2: team2.filter(Boolean)
+                            });
+                        }
+                    }
+                    
+                    if (matchCourts.length > 0) {
+                        generatedMatches.push({
+                            matchId: i,
+                            courts: matchCourts
+                        });
+                    }
+                }
+
+                return generatedMatches;
+            }, [meetingData, gameSettings]);
+
+            // 초기 매치 생성
+            useEffect(() => {
+                if (meetingData && gameSettings) {
+                    console.log('매치 생성 시작:', { meetingData, gameSettings });
+                    const newMatches = generateMatches();
+                    console.log('생성된 매치:', newMatches);
+                    setMatches(newMatches);
+                    
+                    // 게임 결과 초기화
+                    const initialResults = {};
+                    newMatches.forEach(match => {
+                        match.courts.forEach(court => {
+                            initialResults[`${match.matchId}-${court.courtId}`] = {
+                                team1Score: '',
+                                team2Score: ''
+                            };
+                        });
+                    });
+                    setGameResults(initialResults);
+                    
+                    // 랭킹 초기화
+                    const initialRankings = {};
+                    meetingData.members.forEach(member => {
+                        initialRankings[member.name] = {
+                            wins: 0,
+                            gamesWon: 0,
+                            gamesLost: 0,
+                            matches: Array(gameSettings.matchCount).fill('')
+                        };
+                    });
+                    setRankings(initialRankings);
+                }
+            }, [meetingData, gameSettings, generateMatches]);
+
+            // 랭킹 계산
+            useEffect(() => {
+                if (!meetingData || !matches.length) return;
+
+                const newRankings = {};
+                meetingData.members.forEach(member => {
+                    newRankings[member.name] = {
+                        wins: 0,
+                        gamesWon: 0,
+                        gamesLost: 0,
+                        matches: Array(matches.length).fill('')
+                    };
+                });
+
+                // 결과 계산
+                matches.forEach((match, matchIndex) => {
+                    match.courts.forEach(court => {
+                        const resultKey = `${match.matchId}-${court.courtId}`;
+                        const result = gameResults[resultKey];
+                        
+                        if (result && result.team1Score !== '' && result.team2Score !== '') {
+                            const score1 = parseInt(result.team1Score) || 0;
+                            const score2 = parseInt(result.team2Score) || 0;
+                            
+                            court.team1.forEach(member => {
+                                newRankings[member.name].gamesWon += score1;
+                                newRankings[member.name].gamesLost += score2;
+                                if (score1 > score2) {
+                                    newRankings[member.name].wins += 1;
+                                    newRankings[member.name].matches[matchIndex] = 'W';
+                                } else if (score1 < score2) {
+                                    newRankings[member.name].matches[matchIndex] = 'L';
+                                } else {
+                                    newRankings[member.name].matches[matchIndex] = 'D';
+                                }
+                            });
+                            
+                            court.team2.forEach(member => {
+                                newRankings[member.name].gamesWon += score2;
+                                newRankings[member.name].gamesLost += score1;
+                                if (score2 > score1) {
+                                    newRankings[member.name].wins += 1;
+                                    newRankings[member.name].matches[matchIndex] = 'W';
+                                } else if (score2 < score1) {
+                                    newRankings[member.name].matches[matchIndex] = 'L';
+                                } else {
+                                    newRankings[member.name].matches[matchIndex] = 'D';
+                                }
+                            });
+                        }
+                    });
+                });
+
+                setRankings(newRankings);
+            }, [gameResults, matches, meetingData]);
+
+            const updateScore = (matchId, courtId, team, score) => {
+                // 입력 검증
+                if (score !== '' && (isNaN(score) || parseInt(score) < 0)) {
+                    return; // 잘못된 입력 무시
+                }
+                
+                // 최대 점수 제한 (설정에 따라)
+                const maxScore = gameSettings?.gameType || 6;
+                if (score !== '' && parseInt(score) > maxScore * 2) {
+                    return; // 너무 높은 점수 무시
+                }
+                
+                const key = `${matchId}-${courtId}`;
+                setGameResults(prev => ({
+                    ...prev,
+                    [key]: {
+                        ...prev[key],
+                        [`${team}Score`]: score
+                    }
+                }));
+            };
+
+            const handleSave = () => {
+                if (!meetingData) return;
+                
+                const updatedMeeting = {
+                    ...meetingData,
+                    gameSettings,
+                    matches,
+                    gameResults,
+                    rankings,
+                    lastUpdated: new Date().toISOString()
+                };
+                
+                onSave(updatedMeeting);
+                alert('저장되었습니다.');
+            };
+
+            const handleShare = () => {
+                if (!meetingData) return;
+                
+                const shareUrl = `${window.location.origin}${window.location.pathname}?share=${meetingData.id}`;
+                
+                if (navigator.share) {
+                    navigator.share({
+                        title: `${meetingData.name} - 테니스 경기 현황`,
+                        text: '테니스 경기를 실시간으로 확인하세요!',
+                        url: shareUrl
+                    }).catch(console.error);
+                } else {
+                    // 폴백: 클립보드에 복사
+                    navigator.clipboard.writeText(shareUrl).then(() => {
+                        alert('공유 링크가 클립보드에 복사되었습니다!');
+                    }).catch(() => {
+                        // 클립보드 API가 지원되지 않는 경우
+                        prompt('이 링크를 복사하여 공유하세요:', shareUrl);
+                    });
+                }
+            };
+
+            if (!meetingData || !gameSettings) {
+                return (
+                    <div className="p-4">
+                        <h2 className="text-lg font-semibold mb-4">데이터를 불러오는 중...</h2>
+                        <div className="text-sm text-gray-600">
+                            <p>meetingData: {meetingData ? '있음' : '없음'}</p>
+                            <p>gameSettings: {gameSettings ? '있음' : '없음'}</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            const sortedRankings = Object.entries(rankings)
+                .sort(([,a], [,b]) => {
+                    if (b.wins !== a.wins) return b.wins - a.wins;
+                    if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
+                    return a.gamesLost - b.gamesLost;
+                });
+
+            return (
+                <div className="pb-20">
+                    <div className="flex items-center p-4 bg-white shadow-sm">
+                        <button 
+                            onClick={onBack}
+                            className="text-blue-500 mr-3 text-lg"
+                        >
+                            ← 뒤로
+                        </button>
+                        <h1 className="text-xl font-bold text-gray-800">{meetingData.name || '테니스 경기'}</h1>
+                    </div>
+
+                    {/* 순위표 */}
+                    <div className="p-4">
+                        <div className="bg-white rounded-lg shadow-md mb-4">
+                            <div className="p-4 border-b">
+                                <h2 className="text-lg font-semibold text-gray-700">순위표</h2>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="p-2 text-left text-sm font-medium text-gray-700">순위</th>
+                                            <th className="p-2 text-left text-sm font-medium text-gray-700">이름</th>
+                                            <th className="p-2 text-center text-sm font-medium text-gray-700">승수</th>
+                                            <th className="p-2 text-center text-sm font-medium text-gray-700">게임득</th>
+                                            <th className="p-2 text-center text-sm font-medium text-gray-700">게임실</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {sortedRankings.map(([name, data], index) => (
+                                            <tr key={name} className={index % 2 === 0 ? 'bg-gray-50' : 'bg-white'}>
+                                                <td className="p-2 text-sm font-medium">{index + 1}</td>
+                                                <td className="p-2 text-sm">{name}</td>
+                                                <td className="p-2 text-sm text-center text-blue-600 font-medium">{data.wins}</td>
+                                                <td className="p-2 text-sm text-center text-green-600">{data.gamesWon}</td>
+                                                <td className="p-2 text-sm text-center text-red-600">{data.gamesLost}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* 경기 스케줄 */}
+                        <div className="bg-white rounded-lg shadow-md">
+                            <div className="p-4 border-b">
+                                <h2 className="text-lg font-semibold text-gray-700">경기 스케줄</h2>
+                            </div>
+                            <div className="p-4 space-y-4">
+                                {matches.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <p>경기가 생성되지 않았습니다.</p>
+                                        <p className="text-sm mt-2">멤버 수가 부족하거나 설정에 문제가 있을 수 있습니다.</p>
+                                    </div>
+                                ) : (
+                                    matches.map(match => (
+                                    <div key={match.matchId} className="border rounded-lg p-3">
+                                        <h3 className="font-medium text-gray-700 mb-3">{match.matchId + 1}경기</h3>
+                                        {match.courts.map(court => (
+                                            <div key={court.courtId} className="mb-3 last:mb-0">
+                                                <div className="text-sm text-gray-600 mb-2">{court.courtId + 1}번 코트</div>
+                                                <div className="flex items-center space-x-2">
+                                                    <div className="flex-1 text-sm">
+                                                        {court.team1.map(m => m.name).join(', ')}
+                                                    </div>
+                                                    <input
+                                                        type="number"
+                                                        value={gameResults[`${match.matchId}-${court.courtId}`]?.team1Score || ''}
+                                                        onChange={(e) => updateScore(match.matchId, court.courtId, 'team1', e.target.value)}
+                                                        className="w-12 p-1 text-center border rounded focus:ring-2 focus:ring-blue-500"
+                                                        min="0"
+                                                        max={gameSettings?.gameType * 2 || 12}
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
+                                                    />
+                                                    <span className="text-gray-500">:</span>
+                                                    <input
+                                                        type="number"
+                                                        value={gameResults[`${match.matchId}-${court.courtId}`]?.team2Score || ''}
+                                                        onChange={(e) => updateScore(match.matchId, court.courtId, 'team2', e.target.value)}
+                                                        className="w-12 p-1 text-center border rounded focus:ring-2 focus:ring-blue-500"
+                                                        min="0"
+                                                        max={gameSettings?.gameType * 2 || 12}
+                                                        inputMode="numeric"
+                                                        pattern="[0-9]*"
+                                                    />
+                                                    <div className="flex-1 text-right text-sm">
+                                                        {court.team2.map(m => m.name).join(', ')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 하단 고정 버튼들 */}
+                    <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 space-y-3">
+                        <div className="flex space-x-3">
+                            <button
+                                onClick={handleSave}
+                                className="btn-primary flex-1"
+                            >
+                                현재 상태 저장
+                            </button>
+                            <button
+                                onClick={handleShare}
+                                className="btn-secondary flex-1"
+                            >
+                                공유하기
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => setShowSummary(true)}
+                            className="btn-secondary w-full"
+                        >
+                            결과 정리 보기
+                        </button>
+                    </div>
+
+                    {/* 결과 정리 모달 */}
+                    {showSummary && (
+                        <SummaryModal 
+                            rankings={sortedRankings}
+                            matches={matches}
+                            gameResults={gameResults}
+                            gameSettings={gameSettings}
+                            onClose={() => setShowSummary(false)}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // 결과 정리 모달 컴포넌트
+        function SummaryModal({ rankings, matches, gameResults, gameSettings, onClose }) {
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg w-full max-w-lg max-h-96 overflow-y-auto">
+                        <div className="p-4 border-b flex justify-between items-center">
+                            <h3 className="text-lg font-semibold">경기 결과 정리</h3>
+                            <button
+                                onClick={onClose}
+                                className="text-gray-500 text-xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+                        
+                        <div className="p-4">
+                            {/* 최종 순위 */}
+                            <div className="mb-6">
+                                <h4 className="font-semibold mb-3 text-gray-700">최종 순위</h4>
+                                <div className="space-y-2">
+                                    {rankings.slice(0, 3).map(([name, data], index) => (
+                                        <div key={name} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                            <span className="font-medium">
+                                                {index + 1}위. {name}
+                                            </span>
+                                            <span className="text-sm text-gray-600">
+                                                {data.wins}승 ({data.gamesWon}-{data.gamesLost})
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* 경기 통계 */}
+                            <div className="mb-6">
+                                <h4 className="font-semibold mb-3 text-gray-700">경기 통계</h4>
+                                <div className="space-y-1 text-sm">
+                                    <div>총 경기 수: {matches.length}경기</div>
+                                    <div>코트 수: {gameSettings?.courtCount}개</div>
+                                    <div>게임 형식: {gameSettings?.gameType}게임</div>
+                                </div>
+                            </div>
+
+                            {/* 전체 순위 */}
+                            <div>
+                                <h4 className="font-semibold mb-3 text-gray-700">전체 순위</h4>
+                                <div className="text-xs space-y-1">
+                                    {rankings.map(([name, data], index) => (
+                                        <div key={name} className="flex justify-between">
+                                            <span>{index + 1}. {name}</span>
+                                            <span>{data.wins}승 {data.gamesWon}-{data.gamesLost}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<TennisScoreboardApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
