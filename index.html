@@ -90,18 +90,26 @@
 
             // 초기화 및 URL 파라미터 확인
             useEffect(() => {
-                // URL에서 공유 링크 확인
+                // URL에서 파라미터 확인
                 const urlParams = new URLSearchParams(window.location.search);
                 const shareId = urlParams.get('share');
+                const roomParam = urlParams.get('room');
+                const meetingParam = urlParams.get('meeting');
                 
-                if (shareId) {
+                if (roomParam && meetingParam) {
+                    // 서버 모드로 특정 방과 모임에 접속
+                    setShowAuthModal(false);
+                    setServerMode('server');
+                    setRoomCode(roomParam);
+                    loadFromServerAndSelectMeeting(roomParam, meetingParam);
+                } else if (shareId) {
+                    // 로컬 공유 링크
                     setSharedMeetingId(shareId);
                     setShowAuthModal(false);
                     setServerMode('guest');
-                    // 공유된 모임 데이터 로드 (서버에서)
                     loadSharedMeeting(shareId);
                 } else {
-                    // 로컬 스토리지에서 데이터 로드
+                    // 일반 접속
                     const savedMeetings = localStorage.getItem('tennis-meetings');
                     const savedMode = localStorage.getItem('tennis-server-mode');
                     const savedRoomCode = localStorage.getItem('tennis-room-code');
@@ -249,6 +257,56 @@
                 }
             };
 
+            const loadFromServerAndSelectMeeting = async (code, meetingId) => {
+                try {
+                    if (!window.firebaseDB) {
+                        console.log('Firebase 없음');
+                        alert('서버에 연결할 수 없습니다.');
+                        return;
+                    }
+                    
+                    const { doc, getDoc } = window.firebaseUtils;
+                    const roomRef = doc(window.firebaseDB, 'rooms', code);
+                    const roomSnap = await getDoc(roomRef);
+                    
+                    if (roomSnap.exists()) {
+                        const roomData = roomSnap.data();
+                        console.log('🔥 Firebase에서 데이터 로드:', roomData);
+                        
+                        if (roomData.meetings) {
+                            setMeetings(roomData.meetings);
+                            
+                            // 특정 모임 찾기
+                            const targetMeeting = roomData.meetings.find(m => m.id.toString() === meetingId);
+                            if (targetMeeting) {
+                                setCurrentMeeting(targetMeeting);
+                                if (targetMeeting.gameSettings) {
+                                    setGameSettings(targetMeeting.gameSettings);
+                                    setCurrentScreen('game');
+                                } else {
+                                    setCurrentScreen('settings');
+                                }
+                            } else {
+                                alert('해당 모임을 찾을 수 없습니다.');
+                                setCurrentScreen('main');
+                            }
+                        }
+                        if (roomData.clubName) {
+                            setClubName(roomData.clubName);
+                        }
+                        
+                        // 실시간 리스너 설정
+                        setupRealtimeListener(code);
+                    } else {
+                        console.log('해당 코드의 방이 존재하지 않습니다');
+                        alert('존재하지 않는 코드입니다.');
+                    }
+                } catch (error) {
+                    console.error('Firebase 데이터 로드 실패:', error);
+                    alert('데이터 로드 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+
             // 실시간 동기화 리스너 설정
             const setupRealtimeListener = (code) => {
                 if (!window.firebaseDB) return;
@@ -314,12 +372,21 @@
                     onBack={() => setCurrentScreen('create')}
                     onNext={(settings) => {
                         setGameSettings(settings);
-                        setCurrentScreen('game');
+                        setCurrentScreen('preview');
                     }}
+                />,
+                preview: <MatchPreviewScreen 
+                    meetingData={currentMeeting}
+                    gameSettings={gameSettings}
+                    onBack={() => setCurrentScreen('settings')}
+                    onConfirm={() => setCurrentScreen('game')}
                 />,
                 game: <GameScreen 
                     meetingData={currentMeeting}
                     gameSettings={gameSettings}
+                    serverMode={serverMode}
+                    roomCode={roomCode}
+                    clubName={clubName}
                     onBack={() => setCurrentScreen('main')}
                     onSave={(updatedMeeting) => {
                         const updatedMeetings = meetings.map(m => 
@@ -552,13 +619,15 @@
                 const newMeeting = {
                     id: Date.now(),
                     name: meetingName.trim(),
+                    date: new Date().toISOString().split('T')[0],
+                    members: [],
                     createdAt: new Date().toISOString()
                 };
                 
                 setMeetingName('');
                 setShowAddForm(false);
                 setError('');
-                onAddMeeting();
+                onAddMeeting(newMeeting);
             };
 
             const handleCancel = () => {
@@ -570,7 +639,7 @@
             return (
                 <div className="p-4">
                     <div className="text-center mb-8">
-                        <h1 className="text-3xl font-bold text-gray-800 mb-2">테니스 점수판</h1>
+                        <h1 className="text-3xl font-bold text-gray-800 mb-2">Tennis Score AI</h1>
                         {serverMode === 'server' && clubName && roomCode && (
                             <div className="mb-3">
                                 <span className="text-blue-600 font-medium">{clubName}</span>
@@ -580,17 +649,6 @@
                         <p className="text-gray-600">모임을 선택하거나 새로 만드세요.</p>
                     </div>
 
-                    {/* 코드 입력하여 모임으로 이동 버튼 */}
-                    {serverMode !== 'server' && (
-                        <div className="mb-6">
-                            <button 
-                                className="btn-secondary w-full"
-                                onClick={() => setShowJoinModal(true)}
-                            >
-                                🔗 코드 입력하여 모임으로 이동
-                            </button>
-                        </div>
-                    )}
 
                     {/* 기존 모임 목록 */}
                     <div className="mb-6">
@@ -622,6 +680,12 @@
                                     onClick={() => setShowAddForm(true)}
                                 >
                                     + 새 모임 추가하기
+                                </button>
+                                <button 
+                                    className="btn-secondary w-full"
+                                    onClick={() => setShowJoinModal(true)}
+                                >
+                                    🏆 다른 클럽으로 (코드입력)
                                 </button>
                                 {meetings.length > 0 && (
                                     <button 
@@ -842,23 +906,331 @@
             );
         }
 
+        // 경기 미리보기 화면 컴포넌트
+        function MatchPreviewScreen({ meetingData, gameSettings, onBack, onConfirm }) {
+            const [matches, setMatches] = useState([]);
+
+            // 매치 생성 함수 (중복 조합 방지 및 연속 경기 방지)
+            const generateMatches = useCallback(() => {
+                if (!meetingData || !gameSettings) {
+                    return [];
+                }
+
+                const members = [...meetingData.members];
+                const { skillBased, genderSeparated, completelyRandom, courtCount, matchCount } = gameSettings;
+                
+                const generatedMatches = [];
+                const usedTeamCombinations = new Set(); // 사용된 팀 조합 추적
+                const memberPlayCount = {}; // 각 멤버의 경기 참여 횟수 추적
+                const memberLastMatch = {}; // 각 멤버의 마지막 경기 라운드
+                
+                // 멤버별 카운터 초기화
+                members.forEach(member => {
+                    memberPlayCount[member.name] = 0;
+                    memberLastMatch[member.name] = -2; // -2로 초기화하여 첫 경기는 항상 가능하도록
+                });
+
+                // 팀 조합 키 생성 함수 (정렬된 이름으로 고유 키 생성)
+                const getTeamKey = (team1, team2) => {
+                    const allPlayers = [...team1, ...team2].map(p => p.name).sort();
+                    return allPlayers.join('-');
+                };
+
+                // 연속 경기 확인 함수
+                const canPlayInMatch = (players, matchIndex) => {
+                    return players.every(player => {
+                        const lastMatch = memberLastMatch[player.name];
+                        return lastMatch < matchIndex - 1; // 최소 1라운드 휴식
+                    });
+                };
+
+                // 최적의 팀 조합 찾기 함수
+                const findBestTeamCombination = (availableMembers, matchIndex) => {
+                    let bestCombination = null;
+                    let minPlayCountDiff = Infinity;
+                    let attempts = 0;
+                    const maxAttempts = 100;
+
+                    while (attempts < maxAttempts && availableMembers.length >= 4) {
+                        let team1, team2;
+                        
+                        if (completelyRandom) {
+                            // 완전 랜덤 매칭
+                            const shuffled = [...availableMembers].sort(() => Math.random() - 0.5);
+                            team1 = shuffled.slice(0, 2);
+                            team2 = shuffled.slice(2, 4);
+                        } else {
+                            // 설정에 따른 스마트 매칭
+                            let candidates = [...availableMembers];
+                            
+                            // 실력순 반영시 정렬 (하지만 약간의 랜덤성 추가)
+                            if (skillBased) {
+                                candidates.sort((a, b) => {
+                                    const skillDiff = b.skill - a.skill;
+                                    const randomFactor = (Math.random() - 0.5) * 0.5; // 약간의 랜덤성
+                                    return skillDiff + randomFactor;
+                                });
+                            }
+                            
+                            // 성별 구분시 같은 성별끼리 우선 매칭
+                            if (genderSeparated) {
+                                const males = candidates.filter(m => m.gender === '남');
+                                const females = candidates.filter(m => m.gender === '여');
+                                const others = candidates.filter(m => m.gender === '없음');
+                                
+                                if (males.length >= 4) {
+                                    team1 = males.slice(0, 2);
+                                    team2 = males.slice(2, 4);
+                                } else if (females.length >= 4) {
+                                    team1 = females.slice(0, 2);
+                                    team2 = females.slice(2, 4);
+                                } else if (others.length >= 4) {
+                                    team1 = others.slice(0, 2);
+                                    team2 = others.slice(2, 4);
+                                } else {
+                                    // 혼성으로 매칭
+                                    team1 = candidates.slice(0, 2);
+                                    team2 = candidates.slice(2, 4);
+                                }
+                            } else {
+                                // 성별 구분 없이 매칭
+                                team1 = candidates.slice(0, 2);
+                                team2 = candidates.slice(2, 4);
+                            }
+                        }
+
+                        const teamKey = getTeamKey(team1, team2);
+                        const allPlayers = [...team1, ...team2];
+
+                        // 조건 확인: 중복 조합 방지, 연속 경기 방지
+                        if (!usedTeamCombinations.has(teamKey) && canPlayInMatch(allPlayers, matchIndex)) {
+                            // 경기 균형 점수 계산 (참여 횟수 차이가 적을수록 좋음)
+                            const playCountDiff = Math.max(...allPlayers.map(p => memberPlayCount[p.name])) - 
+                                                Math.min(...allPlayers.map(p => memberPlayCount[p.name]));
+                            
+                            if (playCountDiff < minPlayCountDiff) {
+                                minPlayCountDiff = playCountDiff;
+                                bestCombination = { team1, team2, teamKey };
+                            }
+                            
+                            // 완벽한 조합을 찾으면 바로 반환
+                            if (playCountDiff === 0) {
+                                break;
+                            }
+                        }
+
+                        attempts++;
+                        
+                        // 후보군을 약간 섞어서 다시 시도
+                        availableMembers.sort(() => Math.random() - 0.5);
+                    }
+
+                    return bestCombination;
+                };
+
+                // 매치 생성 로직
+                for (let i = 0; i < matchCount; i++) {
+                    const matchCourts = [];
+                    let availableMembers = [...members];
+                    
+                    for (let court = 0; court < courtCount && availableMembers.length >= 4; court++) {
+                        const combination = findBestTeamCombination(availableMembers, i);
+                        
+                        if (combination) {
+                            const { team1, team2, teamKey } = combination;
+                            
+                            // 조합 사용 표시
+                            usedTeamCombinations.add(teamKey);
+                            
+                            // 참여 횟수 및 마지막 경기 업데이트
+                            [...team1, ...team2].forEach(player => {
+                                memberPlayCount[player.name]++;
+                                memberLastMatch[player.name] = i;
+                            });
+                            
+                            // 사용된 멤버들을 availableMembers에서 제거
+                            availableMembers = availableMembers.filter(m => 
+                                !team1.includes(m) && !team2.includes(m)
+                            );
+
+                            matchCourts.push({
+                                courtId: court,
+                                team1: team1.filter(Boolean),
+                                team2: team2.filter(Boolean)
+                            });
+                        }
+                    }
+                    
+                    if (matchCourts.length > 0) {
+                        generatedMatches.push({
+                            matchId: i,
+                            courts: matchCourts
+                        });
+                    }
+                }
+
+                return generatedMatches;
+            }, [meetingData, gameSettings]);
+
+            // 초기 매치 생성
+            useEffect(() => {
+                if (meetingData && gameSettings) {
+                    const newMatches = generateMatches();
+                    setMatches(newMatches);
+                }
+            }, [meetingData, gameSettings, generateMatches]);
+
+            const handleRegenerate = () => {
+                const newMatches = generateMatches();
+                setMatches(newMatches);
+            };
+
+            return (
+                <div className="p-4">
+                    <div className="flex items-center mb-6">
+                        <button 
+                            onClick={onBack}
+                            className="text-blue-500 mr-3 text-lg"
+                        >
+                            ← 뒤로
+                        </button>
+                        <h1 className="text-2xl font-bold text-gray-800">대진표 미리보기</h1>
+                    </div>
+
+                    {/* 게임 설정 요약 */}
+                    <div className="bg-white p-4 rounded-lg shadow-md mb-4">
+                        <h2 className="text-lg font-semibold text-gray-700 mb-3">게임 설정</h2>
+                        <div className="grid grid-cols-2 gap-3 text-sm text-gray-600">
+                            <div>게임 형식: {gameSettings?.gameType}게임</div>
+                            <div>코트 수: {gameSettings?.courtCount}개</div>
+                            <div>매치 수: {gameSettings?.matchCount}경기</div>
+                            <div>
+                                매칭 방식: {
+                                    gameSettings?.completelyRandom ? '완전 랜덤' :
+                                    gameSettings?.skillBased && gameSettings?.genderSeparated ? '실력·성별 분리' :
+                                    gameSettings?.skillBased ? '실력순 반영' :
+                                    gameSettings?.genderSeparated ? '남녀 구분' :
+                                    '기본'
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 대진표 */}
+                    <div className="bg-white rounded-lg shadow-md mb-6">
+                        <div className="p-4 border-b">
+                            <h2 className="text-lg font-semibold text-gray-700">대진표</h2>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            {matches.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    <p>대진표를 생성할 수 없습니다.</p>
+                                    <p className="text-sm mt-2">멤버 수가 부족하거나 설정에 문제가 있을 수 있습니다.</p>
+                                </div>
+                            ) : (
+                                matches.map(match => (
+                                    <div key={match.matchId} className="border rounded-lg p-3">
+                                        <h3 className="font-medium text-gray-700 mb-3">{match.matchId + 1}경기</h3>
+                                        {match.courts.map(court => (
+                                            <div key={court.courtId} className="mb-3 last:mb-0">
+                                                <div className="text-sm text-gray-600 mb-2">{court.courtId + 1}번 코트</div>
+                                                <div className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                                                    <div className="text-sm">
+                                                        <div className="font-medium text-blue-600">
+                                                            {court.team1.map(m => `${m.name}(${m.skill})`).join(', ')}
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-gray-400 font-bold text-lg">VS</div>
+                                                    <div className="text-sm text-right">
+                                                        <div className="font-medium text-red-600">
+                                                            {court.team2.map(m => `${m.name}(${m.skill})`).join(', ')}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+
+                    {/* 확인 질문 */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <p className="text-center text-gray-700 font-medium">
+                            이대로 진행하시겠습니까?
+                        </p>
+                    </div>
+
+                    {/* 하단 버튼들 */}
+                    <div className="space-y-3">
+                        <button
+                            onClick={onConfirm}
+                            className="btn-primary w-full"
+                            disabled={matches.length === 0}
+                        >
+                            진행하기
+                        </button>
+                        <button
+                            onClick={handleRegenerate}
+                            className="btn-secondary w-full"
+                        >
+                            다시하기 (대진표 재생성)
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
         // 게임 설정 화면 컴포넌트
         function GameSettingsScreen({ meetingData, onBack, onNext }) {
-            const [matchType, setMatchType] = useState('random'); // random, skill, gender, both
+            const [skillBased, setSkillBased] = useState(false); // 실력순 반영
+            const [genderSeparated, setGenderSeparated] = useState(false); // 남녀 구분
+            const [completelyRandom, setCompletelyRandom] = useState(true); // 완전 랜덤
             const [gameType, setGameType] = useState(6); // 4 or 6
             const [courtCount, setCourtCount] = useState(2);
             const [matchCount, setMatchCount] = useState(6);
+            
+            // 이전 설정 상태 저장
+            const [previousSkillBased, setPreviousSkillBased] = useState(false);
+            const [previousGenderSeparated, setPreviousGenderSeparated] = useState(false);
 
-            const matchTypeOptions = [
-                { value: 'random', label: '실력/성별 완전 랜덤' },
-                { value: 'skill', label: '실력만 분리' },
-                { value: 'gender', label: '남녀만 분리' },
-                { value: 'both', label: '실력/성별 완전 분리' }
-            ];
+            // 완전 랜덤 토글 처리
+            const handleCompletelyRandomChange = (value) => {
+                if (value) {
+                    // 완전 랜덤을 켤 때: 현재 설정을 저장하고 끄기
+                    setPreviousSkillBased(skillBased);
+                    setPreviousGenderSeparated(genderSeparated);
+                    setSkillBased(false);
+                    setGenderSeparated(false);
+                } else {
+                    // 완전 랜덤을 끌 때: 이전 설정 복원
+                    setSkillBased(previousSkillBased);
+                    setGenderSeparated(previousGenderSeparated);
+                }
+                setCompletelyRandom(value);
+            };
+
+            // 개별 설정 변경 시 이전 설정도 업데이트
+            const handleSkillBasedChange = (value) => {
+                if (!completelyRandom) {
+                    setSkillBased(value);
+                    setPreviousSkillBased(value);
+                }
+            };
+
+            const handleGenderSeparatedChange = (value) => {
+                if (!completelyRandom) {
+                    setGenderSeparated(value);
+                    setPreviousGenderSeparated(value);
+                }
+            };
 
             const handleNext = () => {
                 const settings = {
-                    matchType,
+                    skillBased,
+                    genderSeparated,
+                    completelyRandom,
                     gameType,
                     courtCount,
                     matchCount
@@ -881,20 +1253,74 @@
                     {/* 대전 구축 방식 */}
                     <div className="bg-white p-4 rounded-lg shadow-md mb-4">
                         <h2 className="text-lg font-semibold text-gray-700 mb-4">대전 구축 방식</h2>
-                        <div className="space-y-3">
-                            {matchTypeOptions.map(option => (
-                                <label key={option.value} className="flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="matchType"
-                                        value={option.value}
-                                        checked={matchType === option.value}
-                                        onChange={(e) => setMatchType(e.target.value)}
-                                        className="mr-3"
+                        
+                        {/* 실력순 반영 */}
+                        <div className="flex items-center justify-between mb-4">
+                            <span className="text-gray-700">실력순 반영</span>
+                            <button
+                                onClick={() => handleSkillBasedChange(!skillBased)}
+                                disabled={completelyRandom}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                    completelyRandom 
+                                        ? 'bg-gray-300 cursor-not-allowed' 
+                                        : skillBased 
+                                            ? 'bg-blue-600' 
+                                            : 'bg-gray-200'
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        skillBased && !completelyRandom ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+
+                        {/* 남녀 구분 */}
+                        <div className="flex items-center justify-between mb-6">
+                            <div>
+                                <span className="text-gray-700">남녀 구분</span>
+                                <p className="text-xs text-gray-500">ON: 남녀 구분 / OFF: 혼복 가능</p>
+                            </div>
+                            <button
+                                onClick={() => handleGenderSeparatedChange(!genderSeparated)}
+                                disabled={completelyRandom}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                    completelyRandom 
+                                        ? 'bg-gray-300 cursor-not-allowed' 
+                                        : genderSeparated 
+                                            ? 'bg-blue-600' 
+                                            : 'bg-gray-200'
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        genderSeparated && !completelyRandom ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+
+                        {/* 완전 랜덤 */}
+                        <div className="border-t pt-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <span className="text-gray-700">완전 랜덤</span>
+                                    <p className="text-xs text-gray-500">활성화시 위 설정들이 무시됩니다</p>
+                                </div>
+                                <button
+                                    onClick={() => handleCompletelyRandomChange(!completelyRandom)}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${
+                                        completelyRandom ? 'bg-red-500' : 'bg-gray-200'
+                                    }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            completelyRandom ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
                                     />
-                                    <span className="text-gray-700">{option.label}</span>
-                                </label>
-                            ))}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -961,7 +1387,7 @@
                         onClick={handleNext}
                         className="btn-primary w-full"
                     >
-                        경기 시작
+                        대진표 확인하기
                     </button>
                 </div>
             );
@@ -1207,13 +1633,13 @@
         }
 
         // 게임 진행 화면 컴포넌트
-        function GameScreen({ meetingData, gameSettings, onBack, onSave }) {
+        function GameScreen({ meetingData, gameSettings, serverMode, roomCode, clubName, onBack, onSave }) {
             const [gameResults, setGameResults] = useState({});
             const [rankings, setRankings] = useState({});
             const [matches, setMatches] = useState([]);
             const [showSummary, setShowSummary] = useState(false);
 
-            // 매치 생성 함수
+            // 매치 생성 함수 (중복 조합 방지 및 연속 경기 방지)
             const generateMatches = useCallback(() => {
                 if (!meetingData || !gameSettings) {
                     console.log('매치 생성 실패: 데이터 없음', { meetingData, gameSettings });
@@ -1221,10 +1647,117 @@
                 }
 
                 const members = [...meetingData.members];
-                const { matchType, courtCount, matchCount } = gameSettings;
+                const { skillBased, genderSeparated, completelyRandom, courtCount, matchCount } = gameSettings;
                 
-                console.log('매치 생성 파라미터:', { members: members.length, matchType, courtCount, matchCount });
+                console.log('매치 생성 파라미터:', { members: members.length, skillBased, genderSeparated, completelyRandom, courtCount, matchCount });
                 const generatedMatches = [];
+                const usedTeamCombinations = new Set(); // 사용된 팀 조합 추적
+                const memberPlayCount = {}; // 각 멤버의 경기 참여 횟수 추적
+                const memberLastMatch = {}; // 각 멤버의 마지막 경기 라운드
+                
+                // 멤버별 카운터 초기화
+                members.forEach(member => {
+                    memberPlayCount[member.name] = 0;
+                    memberLastMatch[member.name] = -2; // -2로 초기화하여 첫 경기는 항상 가능하도록
+                });
+
+                // 팀 조합 키 생성 함수 (정렬된 이름으로 고유 키 생성)
+                const getTeamKey = (team1, team2) => {
+                    const allPlayers = [...team1, ...team2].map(p => p.name).sort();
+                    return allPlayers.join('-');
+                };
+
+                // 연속 경기 확인 함수
+                const canPlayInMatch = (players, matchIndex) => {
+                    return players.every(player => {
+                        const lastMatch = memberLastMatch[player.name];
+                        return lastMatch < matchIndex - 1; // 최소 1라운드 휴식
+                    });
+                };
+
+                // 최적의 팀 조합 찾기 함수
+                const findBestTeamCombination = (availableMembers, matchIndex) => {
+                    let bestCombination = null;
+                    let minPlayCountDiff = Infinity;
+                    let attempts = 0;
+                    const maxAttempts = 100;
+
+                    while (attempts < maxAttempts && availableMembers.length >= 4) {
+                        let team1, team2;
+                        
+                        if (completelyRandom) {
+                            // 완전 랜덤 매칭
+                            const shuffled = [...availableMembers].sort(() => Math.random() - 0.5);
+                            team1 = shuffled.slice(0, 2);
+                            team2 = shuffled.slice(2, 4);
+                        } else {
+                            // 설정에 따른 스마트 매칭
+                            let candidates = [...availableMembers];
+                            
+                            // 실력순 반영시 정렬 (하지만 약간의 랜덤성 추가)
+                            if (skillBased) {
+                                candidates.sort((a, b) => {
+                                    const skillDiff = b.skill - a.skill;
+                                    const randomFactor = (Math.random() - 0.5) * 0.5; // 약간의 랜덤성
+                                    return skillDiff + randomFactor;
+                                });
+                            }
+                            
+                            // 성별 구분시 같은 성별끼리 우선 매칭
+                            if (genderSeparated) {
+                                const males = candidates.filter(m => m.gender === '남');
+                                const females = candidates.filter(m => m.gender === '여');
+                                const others = candidates.filter(m => m.gender === '없음');
+                                
+                                if (males.length >= 4) {
+                                    team1 = males.slice(0, 2);
+                                    team2 = males.slice(2, 4);
+                                } else if (females.length >= 4) {
+                                    team1 = females.slice(0, 2);
+                                    team2 = females.slice(2, 4);
+                                } else if (others.length >= 4) {
+                                    team1 = others.slice(0, 2);
+                                    team2 = others.slice(2, 4);
+                                } else {
+                                    // 혼성으로 매칭
+                                    team1 = candidates.slice(0, 2);
+                                    team2 = candidates.slice(2, 4);
+                                }
+                            } else {
+                                // 성별 구분 없이 매칭
+                                team1 = candidates.slice(0, 2);
+                                team2 = candidates.slice(2, 4);
+                            }
+                        }
+
+                        const teamKey = getTeamKey(team1, team2);
+                        const allPlayers = [...team1, ...team2];
+
+                        // 조건 확인: 중복 조합 방지, 연속 경기 방지
+                        if (!usedTeamCombinations.has(teamKey) && canPlayInMatch(allPlayers, matchIndex)) {
+                            // 경기 균형 점수 계산 (참여 횟수 차이가 적을수록 좋음)
+                            const playCountDiff = Math.max(...allPlayers.map(p => memberPlayCount[p.name])) - 
+                                                Math.min(...allPlayers.map(p => memberPlayCount[p.name]));
+                            
+                            if (playCountDiff < minPlayCountDiff) {
+                                minPlayCountDiff = playCountDiff;
+                                bestCombination = { team1, team2, teamKey };
+                            }
+                            
+                            // 완벽한 조합을 찾으면 바로 반환
+                            if (playCountDiff === 0) {
+                                break;
+                            }
+                        }
+
+                        attempts++;
+                        
+                        // 후보군을 약간 섞어서 다시 시도
+                        availableMembers.sort(() => Math.random() - 0.5);
+                    }
+
+                    return bestCombination;
+                };
 
                 // 매치 생성 로직
                 for (let i = 0; i < matchCount; i++) {
@@ -1232,137 +1765,25 @@
                     let availableMembers = [...members];
                     
                     for (let court = 0; court < courtCount && availableMembers.length >= 4; court++) {
-                        let team1, team2;
+                        const combination = findBestTeamCombination(availableMembers, i);
                         
-                        switch (matchType) {
-                            case 'skill':
-                                // 실력별 분리 매칭
-                                const skillSorted = availableMembers.sort((a, b) => b.skill - a.skill);
-                                const highSkill = skillSorted.slice(0, Math.floor(skillSorted.length / 2));
-                                const lowSkill = skillSorted.slice(Math.floor(skillSorted.length / 2));
-                                
-                                if (Math.random() > 0.5 && highSkill.length >= 4) {
-                                    team1 = [highSkill[0], highSkill[1]];
-                                    team2 = [highSkill[2], highSkill[3]];
-                                    availableMembers = availableMembers.filter(m => 
-                                        !team1.includes(m) && !team2.includes(m)
-                                    );
-                                } else if (lowSkill.length >= 4) {
-                                    team1 = [lowSkill[0], lowSkill[1]];
-                                    team2 = [lowSkill[2], lowSkill[3]];
-                                    availableMembers = availableMembers.filter(m => 
-                                        !team1.includes(m) && !team2.includes(m)
-                                    );
-                                } else {
-                                    // 랜덤 매칭으로 폴백
-                                    team1 = [
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                    ];
-                                    team2 = [
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                    ];
-                                }
-                                break;
-                                
-                            case 'gender':
-                                // 성별 분리 매칭
-                                const males = availableMembers.filter(m => m.gender === '남');
-                                const females = availableMembers.filter(m => m.gender === '여');
-                                const others = availableMembers.filter(m => m.gender === '없음');
-                                
-                                if (males.length >= 4) {
-                                    team1 = [males[0], males[1]];
-                                    team2 = [males[2], males[3]];
-                                    availableMembers = availableMembers.filter(m => 
-                                        !team1.includes(m) && !team2.includes(m)
-                                    );
-                                } else if (females.length >= 4) {
-                                    team1 = [females[0], females[1]];
-                                    team2 = [females[2], females[3]];
-                                    availableMembers = availableMembers.filter(m => 
-                                        !team1.includes(m) && !team2.includes(m)
-                                    );
-                                } else if (others.length >= 4) {
-                                    team1 = [others[0], others[1]];
-                                    team2 = [others[2], others[3]];
-                                    availableMembers = availableMembers.filter(m => 
-                                        !team1.includes(m) && !team2.includes(m)
-                                    );
-                                } else {
-                                    // 혼성 매칭
-                                    team1 = [
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                    ];
-                                    team2 = [
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                    ];
-                                }
-                                break;
-                                
-                            case 'both':
-                                // 실력과 성별 모두 고려
-                                const maleHigh = availableMembers.filter(m => m.gender === '남' && m.skill >= 6);
-                                const maleLow = availableMembers.filter(m => m.gender === '남' && m.skill < 6);
-                                const femaleHigh = availableMembers.filter(m => m.gender === '여' && m.skill >= 6);
-                                const femaleLow = availableMembers.filter(m => m.gender === '여' && m.skill < 6);
-                                const otherHigh = availableMembers.filter(m => m.gender === '없음' && m.skill >= 6);
-                                const otherLow = availableMembers.filter(m => m.gender === '없음' && m.skill < 6);
-                                
-                                if (maleHigh.length >= 4) {
-                                    team1 = [maleHigh[0], maleHigh[1]];
-                                    team2 = [maleHigh[2], maleHigh[3]];
-                                } else if (maleLow.length >= 4) {
-                                    team1 = [maleLow[0], maleLow[1]];
-                                    team2 = [maleLow[2], maleLow[3]];
-                                } else if (femaleHigh.length >= 4) {
-                                    team1 = [femaleHigh[0], femaleHigh[1]];
-                                    team2 = [femaleHigh[2], femaleHigh[3]];
-                                } else if (femaleLow.length >= 4) {
-                                    team1 = [femaleLow[0], femaleLow[1]];
-                                    team2 = [femaleLow[2], femaleLow[3]];
-                                } else if (otherHigh.length >= 4) {
-                                    team1 = [otherHigh[0], otherHigh[1]];
-                                    team2 = [otherHigh[2], otherHigh[3]];
-                                } else if (otherLow.length >= 4) {
-                                    team1 = [otherLow[0], otherLow[1]];
-                                    team2 = [otherLow[2], otherLow[3]];
-                                } else {
-                                    // 랜덤 매칭으로 폴백
-                                    team1 = [
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                    ];
-                                    team2 = [
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                        availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                    ];
-                                }
-                                
-                                if (team1 && team2) {
-                                    availableMembers = availableMembers.filter(m => 
-                                        !team1.includes(m) && !team2.includes(m)
-                                    );
-                                }
-                                break;
-                                
-                            default: // 'random'
-                                // 완전 랜덤 매칭
-                                team1 = [
-                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                ];
-                                team2 = [
-                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0],
-                                    availableMembers.splice(Math.floor(Math.random() * availableMembers.length), 1)[0]
-                                ];
-                                break;
-                        }
+                        if (combination) {
+                            const { team1, team2, teamKey } = combination;
+                            
+                            // 조합 사용 표시
+                            usedTeamCombinations.add(teamKey);
+                            
+                            // 참여 횟수 및 마지막 경기 업데이트
+                            [...team1, ...team2].forEach(player => {
+                                memberPlayCount[player.name]++;
+                                memberLastMatch[player.name] = i;
+                            });
+                            
+                            // 사용된 멤버들을 availableMembers에서 제거
+                            availableMembers = availableMembers.filter(m => 
+                                !team1.includes(m) && !team2.includes(m)
+                            );
 
-                        if (team1 && team2 && team1.length === 2 && team2.length === 2) {
                             matchCourts.push({
                                 courtId: court,
                                 team1: team1.filter(Boolean),
@@ -1510,25 +1931,142 @@
                 alert('저장되었습니다.');
             };
 
-            const handleShare = () => {
+            const handleShare = async () => {
                 if (!meetingData) return;
                 
-                const shareUrl = `${window.location.origin}${window.location.pathname}?share=${meetingData.id}`;
-                
-                if (navigator.share) {
-                    navigator.share({
-                        title: `${meetingData.name} - 테니스 경기 현황`,
-                        text: '테니스 경기를 실시간으로 확인하세요!',
-                        url: shareUrl
-                    }).catch(console.error);
-                } else {
-                    // 폴백: 클립보드에 복사
-                    navigator.clipboard.writeText(shareUrl).then(() => {
-                        alert('공유 링크가 클립보드에 복사되었습니다!');
-                    }).catch(() => {
-                        // 클립보드 API가 지원되지 않는 경우
-                        prompt('이 링크를 복사하여 공유하세요:', shareUrl);
-                    });
+                try {
+                    // 현재 경기 상태를 먼저 저장
+                    const updatedMeeting = {
+                        ...meetingData,
+                        gameSettings,
+                        matches,
+                        gameResults,
+                        rankings,
+                        lastUpdated: new Date().toISOString()
+                    };
+                    
+                    // 서버 모드인 경우 Firebase에 저장
+                    if (serverMode === 'server' && roomCode) {
+                        try {
+                            if (window.firebaseDB) {
+                                const { doc, setDoc } = window.firebaseUtils;
+                                const roomRef = doc(window.firebaseDB, 'rooms', roomCode);
+                                
+                                // 현재 방 데이터를 가져와서 업데이트
+                                const { getDoc } = window.firebaseUtils;
+                                const roomSnap = await getDoc(roomRef);
+                                let currentMeetings = [];
+                                
+                                if (roomSnap.exists()) {
+                                    const roomData = roomSnap.data();
+                                    currentMeetings = roomData.meetings || [];
+                                }
+                                
+                                // 현재 모임 업데이트 또는 추가
+                                const updatedMeetings = currentMeetings.map(m => 
+                                    m.id === updatedMeeting.id ? updatedMeeting : m
+                                );
+                                if (!currentMeetings.find(m => m.id === updatedMeeting.id)) {
+                                    updatedMeetings.push(updatedMeeting);
+                                }
+                                
+                                await setDoc(roomRef, {
+                                    clubName: clubName,
+                                    meetings: updatedMeetings,
+                                    lastUpdated: new Date().toISOString(),
+                                    createdAt: new Date().toISOString()
+                                }, { merge: true });
+                                
+                                console.log('🔥 Firebase에 저장 완료');
+                            }
+                        } catch (error) {
+                            console.error('Firebase 저장 실패:', error);
+                            throw error;
+                        }
+                    } else {
+                        // 로컬에도 저장
+                        const savedMeetings = localStorage.getItem('tennis-meetings');
+                        let meetings = [];
+                        if (savedMeetings) {
+                            meetings = JSON.parse(savedMeetings);
+                        }
+                        const updatedMeetings = meetings.map(m => 
+                            m.id === updatedMeeting.id ? updatedMeeting : m
+                        );
+                        if (!meetings.find(m => m.id === updatedMeeting.id)) {
+                            updatedMeetings.push(updatedMeeting);
+                        }
+                        localStorage.setItem('tennis-meetings', JSON.stringify(updatedMeetings));
+                    }
+                    
+                    // 공유 URL 생성
+                    const baseUrl = `${window.location.origin}${window.location.pathname}`;
+                    const shareUrl = serverMode === 'server' && roomCode 
+                        ? `${baseUrl}?room=${roomCode}&meeting=${meetingData.id}`
+                        : `${baseUrl}?share=${meetingData.id}`;
+                    
+                    // 공유 텍스트 생성
+                    const shareTitle = `${meetingData.name} - Tennis Score AI`;
+                    const shareText = `테니스 경기를 실시간으로 확인하세요!\n현재 순위: ${Object.entries(rankings)
+                        .sort(([,a], [,b]) => {
+                            if (b.wins !== a.wins) return b.wins - a.wins;
+                            if (b.gamesWon !== a.gamesWon) return b.gamesWon - a.gamesWon;
+                            return a.gamesLost - b.gamesLost;
+                        })
+                        .slice(0, 3)
+                        .map(([name, data], index) => `${index + 1}위 ${name}(${data.wins}승)`)
+                        .join(', ')}`;
+
+                    // Web Share API 사용 가능 여부 확인
+                    if (navigator.share && navigator.canShare) {
+                        try {
+                            await navigator.share({
+                                title: shareTitle,
+                                text: shareText,
+                                url: shareUrl
+                            });
+                            return;
+                        } catch (error) {
+                            console.log('Web Share API 실패, 폴백 사용:', error);
+                        }
+                    }
+                    
+                    // 폴백 1: 클립보드 API 시도
+                    if (navigator.clipboard && window.isSecureContext) {
+                        try {
+                            await navigator.clipboard.writeText(shareUrl);
+                            alert(`경기 현황이 저장되었습니다!\n공유 링크가 클립보드에 복사되었습니다.\n\n${shareText}`);
+                            return;
+                        } catch (error) {
+                            console.log('클립보드 API 실패, 최종 폴백 사용:', error);
+                        }
+                    }
+                    
+                    // 폴백 2: 텍스트 영역을 이용한 복사
+                    const textArea = document.createElement('textarea');
+                    textArea.value = shareUrl;
+                    textArea.style.position = 'fixed';
+                    textArea.style.left = '-9999px';
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    
+                    try {
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        alert(`경기 현황이 저장되었습니다!\n공유 링크가 클립보드에 복사되었습니다.\n\n${shareText}`);
+                    } catch (error) {
+                        document.body.removeChild(textArea);
+                        // 폴백 3: 사용자에게 직접 링크 제공
+                        const result = prompt(`경기 현황이 저장되었습니다!\n아래 링크를 복사하여 공유하세요:\n\n${shareText}`, shareUrl);
+                        if (result === null) {
+                            alert('공유가 취소되었습니다.');
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('공유 중 오류 발생:', error);
+                    alert('공유 중 오류가 발생했습니다. 다시 시도해주세요.');
                 }
             };
 
