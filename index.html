@@ -8,6 +8,40 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        
+        // Firebase 설정
+        const firebaseConfig = {
+            apiKey: "AIzaSyDcq4qxi-B996KSfRLujBEobq4TP2FS2_w",
+            authDomain: "tennis-scoreboard-4fcad.firebaseapp.com",
+            projectId: "tennis-scoreboard-4fcad",
+            storageBucket: "tennis-scoreboard-4fcad.firebasestorage.app",
+            messagingSenderId: "1024153372160",
+            appId: "1:1024153372160:web:a1638184a214ff0c58bae5"
+        };
+
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        
+        // 전역으로 사용할 수 있도록 window 객체에 추가
+        window.firebaseDB = db;
+        window.firebaseUtils = {
+            doc,
+            setDoc,
+            getDoc,
+            onSnapshot,
+            collection,
+            query,
+            where
+        };
+        
+        console.log('🔥 Firebase 초기화 완료');
+    </script>
     <style>
         body {
             -webkit-touch-callout: none;
@@ -92,9 +126,9 @@
 
             const loadSharedMeeting = async (shareId) => {
                 try {
-                    // 여기서 서버 API 호출
                     console.log('공유된 모임 로드:', shareId);
-                    // 임시로 로컬 데이터에서 찾기
+                    
+                    // 먼저 로컬에서 찾기
                     const savedMeetings = localStorage.getItem('tennis-meetings');
                     if (savedMeetings) {
                         const meetings = JSON.parse(savedMeetings);
@@ -105,8 +139,15 @@
                                 setGameSettings(sharedMeeting.gameSettings);
                                 setCurrentScreen('game');
                             }
+                            return;
                         }
                     }
+                    
+                    // Firebase에서 모든 방을 검색해서 해당 미팅 찾기 (임시 방법)
+                    // 실제로는 미팅 ID를 별도 컬렉션으로 관리하는 것이 좋음
+                    console.log('로컬에서 찾을 수 없어 Firebase 검색 생략');
+                    alert('공유 링크를 찾을 수 없습니다.');
+                    
                 } catch (error) {
                     console.error('공유 모임 로드 실패:', error);
                     alert('공유 링크를 불러올 수 없습니다.');
@@ -131,11 +172,25 @@
 
             const saveToServer = async (meetings) => {
                 try {
-                    // 여기서 서버 API 호출
-                    console.log('서버에 저장:', { roomCode, meetings });
-                    // 실제 구현시 fetch API 사용
+                    if (!window.firebaseDB || !roomCode) {
+                        console.log('Firebase 또는 roomCode 없음');
+                        return;
+                    }
+                    
+                    const { doc, setDoc } = window.firebaseUtils;
+                    const roomRef = doc(window.firebaseDB, 'rooms', roomCode);
+                    
+                    await setDoc(roomRef, {
+                        clubName: clubName,
+                        meetings: meetings,
+                        lastUpdated: new Date().toISOString(),
+                        createdAt: new Date().toISOString()
+                    }, { merge: true });
+                    
+                    console.log('🔥 Firebase에 저장 완료:', { roomCode, meetings: meetings.length });
                 } catch (error) {
-                    console.error('서버 저장 실패:', error);
+                    console.error('Firebase 저장 실패:', error);
+                    alert('저장 중 오류가 발생했습니다: ' + error.message);
                 }
             };
 
@@ -162,11 +217,61 @@
 
             const loadFromServer = async (code) => {
                 try {
-                    // 여기서 서버 API 호출
-                    console.log('서버에서 데이터 로드:', code);
-                    // 실제 구현시 fetch API 사용
+                    if (!window.firebaseDB) {
+                        console.log('Firebase 없음');
+                        return;
+                    }
+                    
+                    const { doc, getDoc } = window.firebaseUtils;
+                    const roomRef = doc(window.firebaseDB, 'rooms', code);
+                    const roomSnap = await getDoc(roomRef);
+                    
+                    if (roomSnap.exists()) {
+                        const roomData = roomSnap.data();
+                        console.log('🔥 Firebase에서 데이터 로드:', roomData);
+                        
+                        if (roomData.meetings) {
+                            setMeetings(roomData.meetings);
+                        }
+                        if (roomData.clubName) {
+                            setClubName(roomData.clubName);
+                        }
+                        
+                        // 실시간 리스너 설정
+                        setupRealtimeListener(code);
+                    } else {
+                        console.log('해당 코드의 방이 존재하지 않습니다');
+                        // 새로운 방 생성을 위해 빈 상태로 시작
+                    }
                 } catch (error) {
-                    console.error('서버 데이터 로드 실패:', error);
+                    console.error('Firebase 데이터 로드 실패:', error);
+                    alert('데이터 로드 중 오류가 발생했습니다: ' + error.message);
+                }
+            };
+
+            // 실시간 동기화 리스너 설정
+            const setupRealtimeListener = (code) => {
+                if (!window.firebaseDB) return;
+                
+                try {
+                    const { doc, onSnapshot } = window.firebaseUtils;
+                    const roomRef = doc(window.firebaseDB, 'rooms', code);
+                    
+                    const unsubscribe = onSnapshot(roomRef, (doc) => {
+                        if (doc.exists()) {
+                            const roomData = doc.data();
+                            console.log('🔥 실시간 업데이트:', roomData);
+                            
+                            if (roomData.meetings) {
+                                setMeetings(roomData.meetings);
+                            }
+                        }
+                    });
+                    
+                    // 언마운트시 리스너 정리를 위해 저장
+                    window.unsubscribeFirebase = unsubscribe;
+                } catch (error) {
+                    console.error('실시간 리스너 설정 실패:', error);
                 }
             };
 
@@ -256,7 +361,7 @@
                 return result;
             };
 
-            const handleServerMode = () => {
+            const handleServerMode = async () => {
                 if (!inputCode.trim()) {
                     setError('코드를 입력해주세요.');
                     return;
@@ -265,7 +370,25 @@
                     setError('코드는 4자리 이상이어야 합니다.');
                     return;
                 }
-                onAuth('server', inputCode.trim());
+                
+                // Firebase에서 코드 존재 확인
+                try {
+                    if (window.firebaseDB) {
+                        const { doc, getDoc } = window.firebaseUtils;
+                        const roomRef = doc(window.firebaseDB, 'rooms', inputCode.trim());
+                        const roomSnap = await getDoc(roomRef);
+                        
+                        if (!roomSnap.exists()) {
+                            setError('존재하지 않는 코드입니다.');
+                            return;
+                        }
+                    }
+                    
+                    onAuth('server', inputCode.trim());
+                } catch (error) {
+                    console.error('코드 확인 실패:', error);
+                    setError('코드 확인 중 오류가 발생했습니다.');
+                }
             };
 
             const handleCreateNew = () => {
@@ -574,7 +697,7 @@
             const [inputCode, setInputCode] = useState('');
             const [error, setError] = useState('');
 
-            const handleJoin = () => {
+            const handleJoin = async () => {
                 if (!inputCode.trim()) {
                     setError('코드를 입력해주세요.');
                     return;
@@ -583,7 +706,25 @@
                     setError('코드는 4자리 이상이어야 합니다.');
                     return;
                 }
-                onJoin(inputCode.trim());
+                
+                // Firebase에서 코드 존재 확인
+                try {
+                    if (window.firebaseDB) {
+                        const { doc, getDoc } = window.firebaseUtils;
+                        const roomRef = doc(window.firebaseDB, 'rooms', inputCode.trim());
+                        const roomSnap = await getDoc(roomRef);
+                        
+                        if (!roomSnap.exists()) {
+                            setError('존재하지 않는 코드입니다.');
+                            return;
+                        }
+                    }
+                    
+                    onJoin(inputCode.trim());
+                } catch (error) {
+                    console.error('코드 확인 실패:', error);
+                    setError('코드 확인 중 오류가 발생했습니다.');
+                }
             };
 
             return (
