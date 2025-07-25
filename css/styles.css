@@ -70,6 +70,25 @@ body {
     cursor: not-allowed;
 }
 
+.header-title {
+    text-align: center;
+}
+
+.header-title h1 {
+    color: #2c5aa0;
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    margin-bottom: 5px;
+}
+
+.header-subtitle {
+    color: #666;
+    font-size: 14px;
+    margin: 0;
+    font-weight: normal;
+}
+
 .subtitle {
     color: #666;
     font-size: 16px;
