@@ -4,7 +4,7 @@
 function saveMeetings() {
     if (appState.mode === 'offline') {
         localStorage.setItem('tennis-meetings', JSON.stringify(appState.meetings));
-    } else if (appState.onlineMode.active) {
+    } else if (appState.onlineMode && appState.onlineMode.active) {
         // 온라인 모드에서 Firebase에 저장
         saveToOnline(appState.meetings)
             .then(() => {

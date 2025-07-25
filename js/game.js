@@ -22,7 +22,7 @@ function initializeGameScreen() {
 function updateRefreshButtonState() {
     const refreshBtn = document.getElementById('refresh-btn');
     if (refreshBtn) {
-        if (appState.onlineMode.active) {
+        if (appState.onlineMode && appState.onlineMode.active) {
             refreshBtn.disabled = false;
             refreshBtn.title = '서버에서 최신 데이터 불러오기';
         } else {
@@ -34,7 +34,7 @@ function updateRefreshButtonState() {
 
 // 게임 데이터 새로고침
 function refreshGameData() {
-    if (!appState.onlineMode.active) {
+    if (!appState.onlineMode || !appState.onlineMode.active) {
         alert('오프라인 모드에서는 새로고침을 사용할 수 없습니다.');
         return;
     }
