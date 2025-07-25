@@ -197,38 +197,74 @@ function checkBracketProgress() {
 
 // 대진표에서 게임 진행으로
 function proceedToGame() {
-    // 온라인 모드에서 진행하기 전 경고
-    if (appState.onlineMode.active) {
-        if (!confirm('이후 단계로 넘어가면 멤버 및 대진표 등을 수정할 수 없습니다.\n진행하겠습니까?')) {
+    console.log('🎾 proceedToGame 함수 호출됨');
+    
+    try {
+        // appState 확인
+        if (!appState) {
+            console.error('❌ appState가 정의되지 않음');
+            alert('앱 상태가 초기화되지 않았습니다.');
             return;
         }
-    }
-    
-    if (checkBracketProgress()) {
-        // 현재 모임 상태를 'playing'으로 변경
-        const meeting = appState.tempMeeting || appState.currentMeeting;
-        meeting.status = 'playing';
         
-        // meetings 배열에 실제 저장 (이 시점에서만!)
-        if (appState.tempMeeting) {
-            // 새 모임인 경우 - 중복 체크 후 추가
-            const existingIndex = appState.meetings.findIndex(m => 
-                m.name === meeting.name && m.date === meeting.date
-            );
-            
-            if (existingIndex >= 0) {
-                // 기존 모임 업데이트
-                appState.meetings[existingIndex] = meeting;
-            } else {
-                // 새 모임 추가
-                appState.meetings.push(meeting);
+        console.log('✅ appState:', appState);
+        
+        // 온라인 모드에서 진행하기 전 경고
+        if (appState.onlineMode && appState.onlineMode.active) {
+            if (!confirm('이후 단계로 넘어가면 멤버 및 대진표 등을 수정할 수 없습니다.\n진행하겠습니까?')) {
+                console.log('⏸️ 사용자가 진행을 취소함');
+                return;
             }
-            
-            appState.currentMeeting = meeting;
-            appState.tempMeeting = null;
         }
         
-        saveMeetings();
-        showGameScreen();
+        console.log('🔍 checkBracketProgress 체크 시작');
+        if (checkBracketProgress()) {
+            console.log('✅ checkBracketProgress 통과');
+            
+            // 현재 모임 상태를 'playing'으로 변경
+            const meeting = appState.tempMeeting || appState.currentMeeting;
+            console.log('📋 현재 모임:', meeting);
+            
+            if (!meeting) {
+                console.error('❌ 모임 데이터를 찾을 수 없음');
+                alert('모임 데이터를 찾을 수 없습니다.');
+                return;
+            }
+            
+            meeting.status = 'playing';
+            
+            // meetings 배열에 실제 저장 (이 시점에서만!)
+            if (appState.tempMeeting) {
+                console.log('💾 새 모임을 저장합니다');
+                // 새 모임인 경우 - 중복 체크 후 추가
+                const existingIndex = appState.meetings.findIndex(m => 
+                    m.name === meeting.name && m.date === meeting.date
+                );
+                
+                if (existingIndex >= 0) {
+                    // 기존 모임 업데이트
+                    console.log('🔄 기존 모임 업데이트');
+                    appState.meetings[existingIndex] = meeting;
+                } else {
+                    // 새 모임 추가
+                    console.log('➕ 새 모임 추가');
+                    appState.meetings.push(meeting);
+                }
+                
+                appState.currentMeeting = meeting;
+                appState.tempMeeting = null;
+            }
+            
+            console.log('💾 데이터 저장 중...');
+            saveMeetings();
+            
+            console.log('🎮 게임 화면으로 이동...');
+            showGameScreen();
+        } else {
+            console.log('❌ checkBracketProgress 실패');
+        }
+    } catch (error) {
+        console.error('❌ proceedToGame 에러:', error);
+        alert('진행 중 오류가 발생했습니다: ' + error.message);
     }
 }
