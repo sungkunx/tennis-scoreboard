@@ -3,7 +3,11 @@ let appState = {
     mode: 'offline',
     meetings: JSON.parse(localStorage.getItem('tennis-meetings') || '[]'),
     currentMeeting: null,
-    tempMeeting: null
+    tempMeeting: null,
+    onlineMode: {
+        active: false,
+        accessCode: null
+    }
 };
 
 // 앱 초기화
@@ -24,7 +28,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function setMode(mode) {
     if (mode === 'online') {
         // 온라인 모드가 이미 활성화되어 있지 않다면 활성화 프로세스 시작
-        if (!appState.onlineMode.active) {
+        if (!appState.onlineMode || !appState.onlineMode.active) {
             activateOnlineMode();
             return;
         }
