@@ -1,0 +1,1232 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background-color: #f5f5f5;
+    min-height: 100vh;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.container {
+    max-width: 414px;
+    margin: 0 auto;
+    background: white;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Header Styles */
+.header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.header h1 {
+    color: #2c5aa0;
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.header-with-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.header-btn {
+    position: absolute;
+    background: #2c5aa0;
+    color: white;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.header-btn:hover {
+    background: #1e3f73;
+}
+
+.home-btn {
+    left: 0;
+}
+
+.refresh-btn {
+    right: 0;
+}
+
+.header-btn:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+/* Meeting List Styles */
+.meeting-list {
+    margin-bottom: 30px;
+}
+
+.meeting-list h2 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 15px;
+    padding-left: 5px;
+}
+
+.meeting-table {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    min-height: 120px;
+}
+
+.meeting-item {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.meeting-item:hover {
+    background-color: #f9f9f9;
+}
+
+.meeting-item:last-child {
+    border-bottom: none;
+}
+
+.empty-meeting-list {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 14px;
+    padding: 40px 20px;
+}
+
+.search-section {
+    margin-bottom: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.clear-search-btn {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.clear-search-btn:hover {
+    background: #545b62;
+}
+
+.meeting-info {
+    flex: 1;
+}
+
+.meeting-title {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 5px;
+}
+
+.meeting-details {
+    font-size: 12px;
+    color: #666;
+}
+
+.meeting-members {
+    font-size: 11px;
+    color: #888;
+    margin-top: 3px;
+}
+
+.delete-btn {
+    background: #ff4757;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.delete-btn:hover {
+    background: #ff3742;
+}
+
+/* Button Styles */
+.add-meeting-btn {
+    width: 100%;
+    background: #2c5aa0;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-bottom: 20px;
+}
+
+.add-meeting-btn:hover {
+    background: #1e3f73;
+}
+
+.existing-members-btn {
+    width: 100%;
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-bottom: 20px;
+}
+
+.existing-members-btn:hover {
+    background: #218838;
+}
+
+.btn-primary {
+    flex: 1;
+    background: #2c5aa0;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.btn-secondary {
+    flex: 1;
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 30px;
+}
+
+/* Mode Section Styles */
+.mode-section {
+    margin-top: 20px;
+}
+
+.mode-toggle {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.mode-btn {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.mode-btn.active {
+    background: #2c5aa0;
+    color: white;
+    border-color: #2c5aa0;
+}
+
+.online-code {
+    display: none;
+    margin-top: 10px;
+}
+
+.online-code.show {
+    display: block;
+}
+
+.code-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    margin-bottom: 10px;
+}
+
+.code-submit {
+    width: 100%;
+    padding: 10px;
+    background: #27ae60;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Form Styles */
+.form-section {
+    margin-bottom: 25px;
+}
+
+.form-label {
+    display: block;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+}
+
+/* Member Management Styles */
+.member-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+    padding: 10px;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    background: #f9f9f9;
+}
+
+.member-name {
+    flex: 2.4;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.member-gender {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.member-skill {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.remove-member {
+    background: #ff4757;
+    color: white;
+    border: none;
+    width: 60px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.add-member-btn {
+    width: 100%;
+    background: #27ae60;
+    color: white;
+    border: none;
+    padding: 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+/* Step2 Specific Styles */
+.current-meeting {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #e8f4fd;
+    border-radius: 8px;
+    margin-bottom: 25px;
+}
+
+.meeting-summary {
+    flex: 1;
+}
+
+.edit-btn {
+    background: #ffc107;
+    color: #333;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.edit-btn-full {
+    width: 100%;
+    background: #ffc107;
+    color: #333;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.edit-btn-full:hover {
+    background: #e0a800;
+}
+
+.radio-group, .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.radio-option, .checkbox-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.input-row {
+    display: flex;
+    gap: 15px;
+}
+
+.input-group {
+    flex: 1;
+}
+
+.input-group label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.info-text {
+    font-size: 12px;
+    color: #666;
+    margin-top: 8px;
+}
+
+/* Bracket Screen Styles */
+.bracket-summary {
+    background: #e8f4fd;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.time-section {
+    margin-bottom: 25px;
+}
+
+.time-header {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c5aa0;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #2c5aa0;
+}
+
+.courts-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.game-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.court-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.court-name {
+    font-weight: bold;
+    color: #333;
+}
+
+.team-type-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.team-type-badge.남복 {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.team-type-badge.여복 {
+    background: #fce4ec;
+    color: #c2185b;
+}
+
+.team-type-badge.혼복 {
+    background: #f3e5f5;
+    color: #7b1fa2;
+}
+
+.teams-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.team {
+    flex: 1;
+}
+
+.team-label {
+    font-size: 14px;
+    font-weight: bold;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.vs-divider {
+    font-weight: bold;
+    color: #666;
+    font-size: 16px;
+}
+
+.member-card {
+    background: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.member-card:hover {
+    background: #e8f4fd;
+    border-color: #2c5aa0;
+}
+
+.member-card:last-child {
+    margin-bottom: 0;
+}
+
+.member-card .member-name {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.member-card .member-info {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: #666;
+}
+
+.member-card .gender {
+    background: #e0e0e0;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.member-card .skill {
+    background: #fff3cd;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.member-card .game-count {
+    background: #d1ecf1;
+    padding: 2px 6px;
+    border-radius: 10px;
+}
+
+.member-card .game-diff {
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+}
+
+.member-card .game-diff.over-average {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.member-card .game-diff.under-average {
+    background: #d4edda;
+    color: #155724;
+}
+
+.game-actions {
+    text-align: center;
+}
+
+.edit-team-btn {
+    background: #ffc107;
+    color: #333;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.balance-info {
+    margin: 20px 0;
+}
+
+.balance-good {
+    background: #d4edda;
+    color: #155724;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #c3e6cb;
+}
+
+.balance-warning {
+    background: #fff3cd;
+    color: #856404;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ffeaa7;
+}
+
+.balance-info-new {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
+    border: 1px solid #dee2e6;
+}
+
+.average-info {
+    font-weight: bold;
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.over-average-list {
+    color: #721c24;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.under-average-list {
+    color: #155724;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.balanced-info {
+    color: #155724;
+    font-weight: bold;
+}
+
+.edit-instruction {
+    color: #666;
+    font-style: italic;
+    font-size: 14px;
+}
+
+.current-player-info {
+    background: #e8f4fd;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+}
+
+.disabled-reason {
+    color: #dc3545;
+    font-weight: bold;
+    font-size: 11px;
+}
+
+/* Online Mode Styles */
+.access-code-info {
+    background: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 15px;
+}
+
+.access-code-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+    color: #155724;
+}
+
+.delete-access-code-btn {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.delete-access-code-btn:hover {
+    background: #c82333;
+}
+
+.error-message {
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+/* Existing Members Modal Styles */
+.existing-meetings-list {
+    max-height: 400px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.existing-meeting-item {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+.existing-meeting-item:hover {
+    background: #f8f9fa;
+    border-color: #2c5aa0;
+}
+
+.existing-meeting-item:last-child {
+    margin-bottom: 0;
+}
+
+.existing-meeting-header {
+    margin-bottom: 8px;
+}
+
+.existing-meeting-title {
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.existing-meeting-date {
+    font-size: 12px;
+    color: #666;
+}
+
+.existing-meeting-members {
+    font-size: 11px;
+    color: #555;
+    line-height: 1.4;
+    padding: 8px;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.no-members-message {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    padding: 20px;
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #333;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.current-teams {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.team-edit {
+    flex: 1;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 15px;
+}
+
+.team-edit h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.editable-member, .empty-slot {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.editable-member:hover, .empty-slot:hover {
+    background: #e8f4fd;
+    border-color: #2c5aa0;
+}
+
+.editable-member.selected, .empty-slot.selected {
+    background: #2c5aa0;
+    color: white;
+    border-color: #1e3f73;
+}
+
+.editable-member.preview {
+    background: #fff3cd;
+    border-color: #ffc107;
+    color: #333;
+}
+
+.empty-slot {
+    background: #f0f0f0;
+    color: #666;
+    text-align: center;
+    font-style: italic;
+}
+
+.available-members h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+
+.member-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.selectable-member {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.selectable-member:hover:not(.disabled) {
+    background: #e8f4fd;
+    border-color: #2c5aa0;
+}
+
+.selectable-member.selected {
+    background: #2c5aa0;
+    color: white;
+    border-color: #1e3f73;
+}
+
+.selectable-member.disabled {
+    background: #e9ecef;
+    color: #6c757d;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.selectable-member .member-name {
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.selectable-member .member-details {
+    font-size: 12px;
+    opacity: 0.8;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    padding: 20px;
+    border-top: 1px solid #eee;
+}
+
+.modal-footer .btn-secondary,
+.modal-footer .btn-primary {
+    flex: 1;
+    margin: 0;
+}
+
+/* Game Screen Styles */
+.ranking-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 25px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.ranking-table th {
+    background: #2c5aa0;
+    color: white;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.ranking-table td {
+    padding: 10px 8px;
+    text-align: center;
+    border-bottom: 1px solid #eee;
+    font-size: 14px;
+}
+
+.ranking-table tr:last-child td {
+    border-bottom: none;
+}
+
+.ranking-table tr:nth-child(even) {
+    background: #f9f9f9;
+}
+
+.games-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.game-score-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    background: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+}
+
+.game-score-card.completed {
+    background: #f8f9fa;
+    border-color: #28a745;
+}
+
+.score-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin: 15px 0;
+}
+
+.team-score {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.team-members {
+    text-align: center;
+}
+
+.team-members .member-name {
+    font-weight: bold;
+    color: #333;
+    font-size: 14px;
+    margin-bottom: 2px;
+}
+
+.score-input-container {
+    width: 60px;
+}
+
+.score-input {
+    width: 100%;
+    height: 50px;
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    background: white;
+    transition: all 0.2s;
+}
+
+.score-input:focus {
+    outline: none;
+    border-color: #2c5aa0;
+    box-shadow: 0 0 0 3px rgba(44, 90, 160, 0.1);
+}
+
+.score-input:disabled {
+    background: #e9ecef;
+    color: #666;
+}
+
+.vs-divider {
+    font-size: 20px;
+    font-weight: bold;
+    color: #666;
+}
+
+.game-status {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.status-completed {
+    background: #d4edda;
+    color: #155724;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-progress {
+    background: #fff3cd;
+    color: #856404;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.game-progress {
+    margin: 20px 0;
+}
+
+.progress-info {
+    text-align: center;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: #2c5aa0;
+    transition: width 0.3s ease;
+}
+
+.game-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 25px;
+}
+
+.game-actions button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.save-btn {
+    background: #28a745;
+    color: white;
+}
+
+.save-btn:hover {
+    background: #218838;
+}
+
+.share-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.share-btn:hover {
+    background: #138496;
+}
+
+.summary-btn {
+    background: #ffc107;
+    color: #333;
+}
+
+.summary-btn:hover {
+    background: #e0a800;
+}
+
+.summary-text {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-x: auto;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.summary-modal {
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 0;
+}
+
+.summary-modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 1px solid #eee;
+    margin-top: auto;
+}
+
+/* Utility Classes */
+.hidden {
+    display: none !important;
+}
+
+/* Mobile Touch Optimization */
+button, .meeting-item {
+    min-height: 44px;
+}
+
+@media (max-width: 480px) {
+    .container {
+        padding: 15px;
+    }
+    
+    .header h1 {
+        font-size: 24px;
+    }
+}
