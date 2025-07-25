@@ -1,11 +1,9 @@
 // 온라인 모드 관련 기능들
 
-// 온라인 모드 상태 추가
-appState.onlineMode = {
-    active: false,
-    accessCode: null,
-    connected: false
-};
+// 온라인 모드 상태 확장 (이미 app.js에서 기본 초기화됨)
+if (!appState.onlineMode.hasOwnProperty('connected')) {
+    appState.onlineMode.connected = false;
+}
 
 // 온라인 모드 활성화 시작
 function activateOnlineMode() {
@@ -301,6 +299,32 @@ function loadOnlineData() {
         .catch((error) => {
             console.error('데이터 로드 실패:', error);
         });
+}
+
+// 온라인 모드 활성화 완료 (접속코드 변경 시 사용)
+function completeOnlineActivation(accessCode) {
+    // Firebase 초기화 시도
+    if (!isFirebaseConnected()) {
+        if (!initializeFirebase()) {
+            alert('온라인 모드 연결에 실패했습니다.');
+            return;
+        }
+    }
+    
+    // 온라인 모드 활성화
+    appState.onlineMode.active = true;
+    appState.onlineMode.accessCode = accessCode;
+    appState.onlineMode.connected = true;
+    appState.mode = 'online';
+    
+    // UI 업데이트
+    updateOnlineModeUI();
+    
+    // 기존 오프라인 데이터를 온라인으로 업로드
+    uploadOfflineDataToOnline();
+    
+    // 온라인 데이터 로드
+    loadOnlineData();
 }
 
 // 온라인 모드에서 데이터 저장
