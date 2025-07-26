@@ -1,30 +1,4 @@
-// 대진표 생성 및 관리 기능들
-
-// 대진표 생성
-function generateBracket() {
-    const genderSeparate = document.getElementById('gender-separate').checked;
-    const skillBalance = document.getElementById('skill-balance').checked;
-    const courtCount = parseInt(document.getElementById('court-count').value);
-    const timeCount = parseInt(document.getElementById('time-count').value);
-    
-    // 게임 설정 저장
-    appState.tempMeeting.settings = {
-        genderSeparate,
-        skillBalance,
-        courtCount,
-        timeCount
-    };
-    
-    // 대진표 생성
-    const bracket = createRandomBracket(appState.tempMeeting.members, courtCount, timeCount, genderSeparate, skillBalance);
-    appState.tempMeeting.bracket = bracket;
-    
-    // 대진표 상태만 업데이트, 아직 저장하지 않음
-    appState.tempMeeting.status = 'ready';
-    
-    // 대진표 화면으로 이동
-    showBracketScreen();
-}
+// 대진표 생성 및 관리 기능들 (랜덤 방식)
 
 // 랜덤 대진표 생성
 function createRandomBracket(members, courtCount, timeCount, genderSeparate, skillBalance) {

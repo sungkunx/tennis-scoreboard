@@ -5,6 +5,9 @@ function initializeGameScreen() {
     const meeting = appState.currentMeeting;
     if (!meeting || !meeting.bracket) return;
     
+    // 모임명 표시
+    displayGameMeetingName(meeting);
+    
     // 리프레시 버튼 상태 업데이트
     updateRefreshButtonState();
     
@@ -16,6 +19,14 @@ function initializeGameScreen() {
     
     // 진행 상황 업데이트
     updateGameProgress(meeting);
+}
+
+// 게임 화면에 모임명 표시
+function displayGameMeetingName(meeting) {
+    const meetingNameElement = document.getElementById('game-meeting-name');
+    if (meetingNameElement && meeting.name) {
+        meetingNameElement.textContent = meeting.name;
+    }
 }
 
 // 리프레시 버튼 상태 업데이트

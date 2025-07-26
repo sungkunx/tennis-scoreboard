@@ -139,6 +139,14 @@ function displayMeetingSummary() {
         <div><strong>${meeting.name}</strong></div>
         <div>${meeting.members.length}명: ${memberNames}</div>
     `;
+    
+    // KDK 모드일 때 게임 수 업데이트
+    setTimeout(() => {
+        const bracketType = document.querySelector('input[name="bracket-type"]:checked')?.value;
+        if (bracketType === 'kdk') {
+            updateKDKGameCount();
+        }
+    }, 100);
 }
 
 // 게임 수 정보 업데이트
@@ -200,8 +208,204 @@ function editMeeting() {
     editMeetingFromBracket();
 }
 
+// 대진표 타입 변경 처리
+function handleBracketTypeChange() {
+    const bracketType = document.querySelector('input[name="bracket-type"]:checked').value;
+    
+    if (bracketType === 'kdk') {
+        setupKDKMode();
+    } else {
+        setupRandomMode();
+    }
+}
+
+// KDK 모드 설정
+function setupKDKMode() {
+    // 조건 설정 섹션 완전 교체
+    const checkboxGroup = document.querySelector('#condition-settings .checkbox-group');
+    checkboxGroup.innerHTML = `
+        <label class="checkbox-option" id="kdk-skill-balance-option">
+            <input type="checkbox" id="kdk-skill-balance">
+            <span>실력 구분 (A일수록 높은 실력, 미선택시 전체 랜덤)</span>
+        </label>
+    `;
+    
+    // 타임 수 비활성화 (자동 계산)
+    const timeCountGroup = document.getElementById('time-count-group');
+    const timeCountInput = document.getElementById('time-count');
+    timeCountGroup.style.opacity = '0.5';
+    timeCountInput.disabled = true;
+    
+    // 조건 설명 변경
+    const conditionInfo = document.getElementById('condition-info');
+    conditionInfo.textContent = '* KDK 방식: 5~10명, 각 참가자 4게임 고정, 실력별 번호 배정';
+    
+    updateKDKGameCount();
+}
+
+// 랜덤 모드 설정
+function setupRandomMode() {
+    // 조건 설정 섹션 원래대로 복원
+    const checkboxGroup = document.querySelector('#condition-settings .checkbox-group');
+    checkboxGroup.innerHTML = `
+        <label class="checkbox-option" id="gender-separate-option">
+            <input type="checkbox" id="gender-separate">
+            <span>성별 구분 (남복/여복 구분)</span>
+        </label>
+        <label class="checkbox-option" id="skill-balance-option">
+            <input type="checkbox" id="skill-balance">
+            <span>실력 구분 (가능한 상대팀은 실력이 비슷하게 설정)</span>
+        </label>
+    `;
+    
+    // 타임 수 활성화
+    const timeCountGroup = document.getElementById('time-count-group');
+    const timeCountInput = document.getElementById('time-count');
+    timeCountGroup.style.opacity = '1';
+    timeCountInput.disabled = false;
+    
+    // 조건 설명 복원
+    const conditionInfo = document.getElementById('condition-info');
+    conditionInfo.textContent = '* 다음 단계에서 대진표가 나오면 수정이 가능합니다';
+    
+    updateGameCountInfo();
+}
+
+// KDK 게임 수 업데이트
+function updateKDKGameCount() {
+    if (!appState.tempMeeting || !appState.tempMeeting.members) {
+        return;
+    }
+    
+    const memberCount = appState.tempMeeting.members.length;
+    const courtCount = document.getElementById('court-count')?.value || 2;
+    
+    if (memberCount < 5 || memberCount > 10) {
+        const info = document.getElementById('game-count-info');
+        info.textContent = `⚠️ KDK 방식은 5명에서 10명까지만 가능합니다 (현재 ${memberCount}명)`;
+        info.style.color = 'red';
+        return;
+    }
+    
+    const totalGames = memberCount; // KDK는 참가자 수 = 게임 수
+    const timeCount = Math.ceil(totalGames / courtCount);
+    
+    // 타임 수 자동 설정
+    document.getElementById('time-count').value = timeCount;
+    
+    const info = document.getElementById('game-count-info');
+    info.textContent = `총 ${totalGames}개의 게임이 생성됩니다 (${timeCount}타임)`;
+    info.style.color = '';
+}
+
 // 대진표 생성
 function generateBracket() {
-    // TODO: 대진표 생성 로직
-    console.log('대진표 생성');
+    const bracketType = document.querySelector('input[name="bracket-type"]:checked').value;
+    
+    if (bracketType === 'kdk') {
+        // KDK 모드 인원 체크 (5-10명)
+        const memberCount = appState.tempMeeting.members.length;
+        if (memberCount < 5 || memberCount > 10) {
+            showKDKPlayerCountWarning(memberCount);
+            return;
+        }
+        generateKDKBracket();
+    } else {
+        generateRandomBracket();
+    }
+}
+
+// 기존 랜덤 대진표 생성 함수 (bracket.js에서 이동)
+function generateRandomBracket() {
+    const genderSeparate = document.getElementById('gender-separate').checked;
+    const skillBalance = document.getElementById('skill-balance').checked;
+    const courtCount = parseInt(document.getElementById('court-count').value);
+    const timeCount = parseInt(document.getElementById('time-count').value);
+    
+    // 게임 설정 저장
+    appState.tempMeeting.settings = {
+        bracketType: 'random',
+        genderSeparate,
+        skillBalance,
+        courtCount,
+        timeCount
+    };
+    
+    // 대진표 생성
+    const bracket = createRandomBracket(appState.tempMeeting.members, courtCount, timeCount, genderSeparate, skillBalance);
+    appState.tempMeeting.bracket = bracket;
+    
+    // 대진표 상태만 업데이트, 아직 저장하지 않음
+    appState.tempMeeting.status = 'ready';
+    
+    // 대진표 화면으로 이동
+    showBracketScreen();
+}
+
+// KDK 인원 경고 모달 표시
+function showKDKPlayerCountWarning(memberCount) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>KDK 방식 인원 제한</h3>
+                <button class="modal-close" onclick="closeKDKPlayerCountWarning()">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <p><strong>KDK방식은 5명에서 10명까지만 가능합니다.</strong></p>
+                <p>현재 참가자: <strong>${memberCount}명</strong></p>
+                <p>멤버 수를 조정하거나 랜덤 생성 방식을 선택해주세요.</p>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeKDKPlayerCountWarning()">취소</button>
+                <button class="btn-primary" onclick="goToStep1FromWarning()">멤버 수정</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// KDK 인원 경고 모달 닫기
+function closeKDKPlayerCountWarning() {
+    const modal = document.querySelector('.modal-overlay');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 경고에서 Step1으로 이동
+function goToStep1FromWarning() {
+    closeKDKPlayerCountWarning();
+    showStep1();
+}
+
+// KDK 대진표 생성 함수
+function generateKDKBracket() {
+    const courtCount = parseInt(document.getElementById('court-count').value);
+    const timeCount = parseInt(document.getElementById('time-count').value);
+    
+    // KDK 실력 구분 옵션 확인
+    const kdkSkillBalance = document.getElementById('kdk-skill-balance')?.checked || false;
+    
+    // 게임 설정 저장
+    appState.tempMeeting.settings = {
+        bracketType: 'kdk',
+        kdkSkillBalance,
+        courtCount,
+        timeCount
+    };
+    
+    // KDK 대진표 생성
+    const bracket = createKDKBracket(appState.tempMeeting.members, courtCount, kdkSkillBalance);
+    appState.tempMeeting.bracket = bracket;
+    
+    // 대진표 상태만 업데이트, 아직 저장하지 않음
+    appState.tempMeeting.status = 'ready';
+    
+    // 대진표 화면으로 이동
+    showBracketScreen();
 }

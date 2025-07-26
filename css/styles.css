@@ -65,6 +65,28 @@ body {
     right: 0;
 }
 
+.refresh-btn-text {
+    position: absolute;
+    right: 0;
+    background: #2c5aa0;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.refresh-btn-text:hover {
+    background: #1e3f73;
+}
+
+.refresh-btn-text:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+}
+
 .header-btn:disabled {
     background: #6c757d;
     cursor: not-allowed;
@@ -353,7 +375,7 @@ body {
 /* Member Management Styles */
 .member-item {
     display: flex;
-    gap: 10px;
+    gap: 6px;
     margin-bottom: 10px;
     align-items: center;
     padding: 10px;
@@ -363,8 +385,8 @@ body {
 }
 
 .member-name {
-    flex: 2.4;
-    padding: 8px;
+    flex: 1.6;
+    padding: 6px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
@@ -372,7 +394,7 @@ body {
 
 .member-gender {
     flex: 1;
-    padding: 8px;
+    padding: 6px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
@@ -380,7 +402,7 @@ body {
 
 .member-skill {
     flex: 1;
-    padding: 8px;
+    padding: 6px;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
@@ -651,6 +673,53 @@ body {
 .member-card .game-diff.under-average {
     background: #d4edda;
     color: #155724;
+}
+
+/* KDK 멤버 카드 스타일 */
+.member-card.kdk-member {
+    background: #fff3cd;
+    border-color: #ffc107;
+}
+
+.member-card.kdk-member:hover {
+    background: #ffeaa7;
+    border-color: #e0a800;
+}
+
+.member-card.kdk-member .member-name {
+    color: #856404;
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.member-card .kdk-number {
+    background: #ffc107;
+    color: #333;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 10px;
+}
+
+/* KDK 잠금 상태 스타일 */
+.member-card.kdk-locked {
+    cursor: not-allowed;
+    position: relative;
+}
+
+.member-card.kdk-locked:hover {
+    background: #fff3cd;
+    border-color: #ffc107;
+    transform: none;
+}
+
+.member-card .kdk-locked-icon {
+    background: #dc3545;
+    color: white;
+    padding: 2px 4px;
+    border-radius: 8px;
+    font-size: 10px;
+    margin-left: 4px;
 }
 
 .game-actions {

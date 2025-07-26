@@ -204,6 +204,12 @@ function editPlayer(gameId, teamNumber, memberName) {
     const meeting = appState.tempMeeting || appState.currentMeeting;
     if (!meeting?.bracket) return;
     
+    // KDK 모드에서는 플레이어 편집 불가
+    if (meeting.settings?.bracketType === 'kdk') {
+        alert('KDK 방식에서는 플레이어 변경이 불가능합니다.\n미리 정해진 조합에 따라 진행됩니다.');
+        return;
+    }
+    
     const game = meeting.bracket.games.find(g => g.id === gameId);
     if (!game) return;
     

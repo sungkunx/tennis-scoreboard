@@ -107,26 +107,46 @@ function renderGameCard(game) {
 // 멤버 카드 렌더링
 function renderMemberCard(member, gameId, teamNumber) {
     const meeting = appState.tempMeeting || appState.currentMeeting;
-    const gamesCount = meeting?.bracket?.memberGameCount?.[member.name] || 0;
+    const isKDK = meeting?.settings?.bracketType === 'kdk';
     
-    // 평균 게임 수 계산: (총 게임수 × 4명) ÷ 전체 플레이어 수
-    const totalGames = meeting?.bracket?.games?.length || 0;
-    const totalPlayers = meeting?.members?.length || 1;
-    const averageGames = (totalGames * 4) / totalPlayers;
-    const diffFromAverage = gamesCount - averageGames;
-    const diffText = diffFromAverage > 0 ? `+${diffFromAverage.toFixed(1)}` : diffFromAverage.toFixed(1);
-    
-    return `
-        <div class="member-card" onclick="editPlayer('${gameId}', ${teamNumber}, '${member.name}')">
-            <div class="member-name">${member.name}</div>
-            <div class="member-info">
-                <span class="gender">${member.gender}</span>
-                <span class="skill">실력${member.skill}</span>
-                <span class="game-count">${gamesCount}게임</span>
-                <span class="game-diff ${diffFromAverage > 0 ? 'over-average' : 'under-average'}">평균대비${diffText}</span>
+    if (isKDK) {
+        // KDK 모드: "KDK(1) 홍길동(실력9)" 형식 (클릭 불가)
+        const kdkNumber = member.kdkNumber || '?';
+        const gamesCount = meeting?.bracket?.memberGameCount?.[member.name] || 0;
+        
+        return `
+            <div class="member-card kdk-member kdk-locked" title="KDK 방식에서는 플레이어 변경이 불가능합니다">
+                <div class="member-name">KDK(${kdkNumber}) ${member.name}(실력${member.skill})</div>
+                <div class="member-info">
+                    <span class="kdk-number">번호 ${kdkNumber}</span>
+                    <span class="game-count">${gamesCount}게임</span>
+                    <span class="kdk-locked-icon">🔒</span>
+                </div>
             </div>
-        </div>
-    `;
+        `;
+    } else {
+        // 기존 랜덤 모드
+        const gamesCount = meeting?.bracket?.memberGameCount?.[member.name] || 0;
+        
+        // 평균 게임 수 계산: (총 게임수 × 4명) ÷ 전체 플레이어 수
+        const totalGames = meeting?.bracket?.games?.length || 0;
+        const totalPlayers = meeting?.members?.length || 1;
+        const averageGames = (totalGames * 4) / totalPlayers;
+        const diffFromAverage = gamesCount - averageGames;
+        const diffText = diffFromAverage > 0 ? `+${diffFromAverage.toFixed(1)}` : diffFromAverage.toFixed(1);
+        
+        return `
+            <div class="member-card" onclick="editPlayer('${gameId}', ${teamNumber}, '${member.name}')">
+                <div class="member-name">${member.name}</div>
+                <div class="member-info">
+                    <span class="gender">${member.gender}</span>
+                    <span class="skill">실력${member.skill}</span>
+                    <span class="game-count">${gamesCount}게임</span>
+                    <span class="game-diff ${diffFromAverage > 0 ? 'over-average' : 'under-average'}">평균대비${diffText}</span>
+                </div>
+            </div>
+        `;
+    }
 }
 
 // 게임 균형 체크 및 표시
@@ -209,12 +229,10 @@ function proceedToGame() {
         
         console.log('✅ appState:', appState);
         
-        // 온라인 모드에서 진행하기 전 경고
-        if (appState.onlineMode && appState.onlineMode.active) {
-            if (!confirm('이후 단계로 넘어가면 멤버 및 대진표 등을 수정할 수 없습니다.\n진행하겠습니까?')) {
-                console.log('⏸️ 사용자가 진행을 취소함');
-                return;
-            }
+        // 진행하기 전 확인 (모든 모드에서)
+        if (!confirm('진행하면 현재 설정을 변경 할 수 없습니다. 진행하시겠습니까?')) {
+            console.log('⏸️ 사용자가 진행을 취소함');
+            return;
         }
         
         console.log('🔍 checkBracketProgress 체크 시작');
