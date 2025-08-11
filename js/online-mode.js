@@ -122,6 +122,16 @@ function confirmAccessCode() {
         }
     }
     
+    // Firebase 연결 테스트
+    console.log('🔗 Firebase 연결 테스트 시작...');
+    database.ref('.info/connected').on('value', function(snapshot) {
+        if (snapshot.val() === true) {
+            console.log('✅ Firebase 연결 성공!');
+        } else {
+            console.log('❌ Firebase 연결 실패!');
+        }
+    });
+    
     // 온라인 모드 활성화
     appState.onlineMode.active = true;
     appState.onlineMode.accessCode = accessCode;
@@ -177,7 +187,13 @@ function updateOnlineModeUI() {
 
 // 접속 코드 정보 표시
 function showAccessCodeInfo() {
-    const header = document.querySelector('#main-screen .header');
+    // 새로운 디자인에 맞게 hero-section을 대상으로 변경
+    const heroSection = document.querySelector('#main-screen .hero-section');
+    
+    if (!heroSection) {
+        console.error('❌ hero-section을 찾을 수 없습니다.');
+        return;
+    }
     
     // 기존 접속 코드 정보 제거
     const existingInfo = document.getElementById('access-code-info');
@@ -196,7 +212,7 @@ function showAccessCodeInfo() {
         </div>
     `;
     
-    header.appendChild(accessCodeInfo);
+    heroSection.appendChild(accessCodeInfo);
 }
 
 // 접속 코드 삭제 확인
@@ -288,28 +304,94 @@ function uploadOfflineDataToOnline() {
 // 온라인 데이터 로드
 function loadOnlineData() {
     if (!isFirebaseConnected() || !appState.onlineMode.accessCode) {
+        console.log('❌ Firebase 연결 실패 또는 접속코드 없음');
         return;
     }
     
-    console.log('🔄 오프라인에서 온라인 모드로 전환: 온라인 데이터 로드');
+    console.log('🔄 온라인 모드 데이터 로드 시작, 접속코드:', appState.onlineMode.accessCode);
     const accessCode = appState.onlineMode.accessCode;
+    
+    // 기존 오프라인 데이터 백업
+    const offlineData = [...appState.meetings];
+    console.log('💾 기존 오프라인 데이터:', offlineData.length + '개 모임');
+    
+    // Firebase 데이터베이스 전체 구조 먼저 확인
+    console.log('🔍 Firebase 데이터베이스 전체 구조 확인...');
+    database.ref('accessCodes').once('value')
+        .then((snapshot) => {
+            const allData = snapshot.val();
+            console.log('📁 전체 accessCodes:', allData ? Object.keys(allData) : '없음');
+            if (allData) {
+                console.log('📂 전체 데이터베이스 구조:', JSON.stringify(allData, null, 2));
+            }
+        })
+        .catch((error) => {
+            console.error('❌ 전체 구조 확인 실패:', error);
+        });
     
     database.ref('accessCodes/' + accessCode).once('value')
         .then((snapshot) => {
+            console.log('🔍 Firebase 응답 받음');
             const data = snapshot.val();
+            console.log('📦 Firebase Raw 데이터:', JSON.stringify(data, null, 2));
+            
+            if (data) {
+                console.log('🔍 Firebase 데이터 구조:', Object.keys(data));
+                if (data.meetings) {
+                    console.log('☁️ meetings 필드 존재:', Array.isArray(data.meetings));
+                    console.log('☁️ meetings 타입:', typeof data.meetings);
+                    console.log('☁️ meetings 내용:', JSON.stringify(data.meetings, null, 2));
+                }
+            }
+            
             if (data && data.meetings) {
-                appState.meetings = data.meetings;
-                console.log('☁️ 온라인 데이터 로드 완료:', appState.meetings.length + '개 모임');
+                // 온라인 데이터만 우선 로드 (기존 동작 복원)
+                const onlineData = data.meetings;
+                console.log('☁️ 온라인 데이터 발견:', onlineData.length + '개 모임');
+                console.log('☁️ 첫 번째 모임:', JSON.stringify(onlineData[0], null, 2));
+                appState.meetings = onlineData;
+                console.log('✅ appState.meetings 업데이트됨:', appState.meetings.length + '개');
                 loadMeetings();
             } else {
-                console.log('☁️ 저장된 온라인 데이터 없음');
-                appState.meetings = [];
+                console.log('❌ 저장된 온라인 데이터 없음 (data:', !!data, ', data.meetings:', !!(data && data.meetings), ')');
+                // 온라인 데이터가 없는 경우에만 오프라인 데이터 사용
+                if (offlineData.length > 0) {
+                    console.log('💾 오프라인 데이터로 대체');
+                    appState.meetings = offlineData;
+                } else {
+                    console.log('📝 빈 배열로 설정');
+                    appState.meetings = [];
+                }
                 loadMeetings();
             }
         })
         .catch((error) => {
-            console.error('데이터 로드 실패:', error);
+            console.error('❌ Firebase 데이터 로드 실패:', error);
+            // 실패 시 오프라인 데이터 사용
+            appState.meetings = offlineData;
+            loadMeetings();
         });
+}
+
+// 오프라인 데이터와 온라인 데이터 병합
+function mergeOfflineAndOnlineData(offlineData, onlineData) {
+    const merged = [...offlineData];
+    
+    // 온라인 데이터를 순회하면서 중복되지 않은 것만 추가
+    onlineData.forEach(onlineMeeting => {
+        const exists = merged.some(offlineMeeting => 
+            offlineMeeting.name === onlineMeeting.name && 
+            offlineMeeting.date === onlineMeeting.date &&
+            JSON.stringify(offlineMeeting.members) === JSON.stringify(onlineMeeting.members)
+        );
+        
+        if (!exists) {
+            merged.push(onlineMeeting);
+        }
+    });
+    
+    // 날짜 순으로 정렬 (최신 순)
+    return merged.sort((a, b) => new Date(b.date) - new Date(a.date));
 }
 
 // 온라인 모드 활성화 완료 (접속코드 변경 시 사용)

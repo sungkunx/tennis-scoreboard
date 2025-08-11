@@ -1,5 +1,19 @@
 // 공통 유틸리티 함수들
 
+// 모임 ID 생성 함수
+function generateMeetingId() {
+    const now = new Date();
+    const dateString = now.getFullYear().toString() + 
+                      (now.getMonth() + 1).toString().padStart(2, '0') + 
+                      now.getDate().toString().padStart(2, '0');
+    const timeString = now.getHours().toString().padStart(2, '0') + 
+                      now.getMinutes().toString().padStart(2, '0') + 
+                      now.getSeconds().toString().padStart(2, '0');
+    const randomString = Math.random().toString(36).substring(2, 5);
+    
+    return `meeting_${dateString}_${timeString}_${randomString}`;
+}
+
 // 날짜 포맷팅
 function formatDate(date) {
     return date.toLocaleDateString('ko-KR');

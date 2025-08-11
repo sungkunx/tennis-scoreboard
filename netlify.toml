@@ -1,0 +1,19 @@
+[build]
+  # 정적 파일이므로 빌드 불필요
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # 보안 헤더
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Firebase 도메인 허용
+    Content-Security-Policy = "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://firebase.googleapis.com https://*.firebaseapp.com https://*.firebasedatabase.app; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

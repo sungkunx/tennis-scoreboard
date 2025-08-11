@@ -359,25 +359,86 @@ function shareGame() {
     const meeting = appState.currentMeeting;
     if (!meeting) return;
     
-    // 간단한 URL 생성 (실제로는 서버 구현 필요)
-    const shareData = {
-        meetingName: meeting.name,
-        date: meeting.date,
-        members: meeting.members.length
-    };
+    // 온라인 모드가 활성화되지 않은 경우 알림
+    if (!appState.onlineMode.active) {
+        alert('공유 기능을 사용하려면 먼저 온라인 모드를 활성화해주세요.');
+        return;
+    }
     
-    const shareText = `테니스 스코어보드 공유\n모임: ${shareData.meetingName}\n날짜: ${shareData.date}\n참가자: ${shareData.members}명`;
+    // 접속 코드와 모임 ID를 포함한 공유 링크 생성
+    const accessCode = appState.onlineMode.accessCode;
+    const baseUrl = window.location.origin + window.location.pathname;
     
-    if (navigator.share) {
-        navigator.share({
-            title: 'Tennis ScoreBoard',
-            text: shareText,
-            url: window.location.href
-        });
+    // 모임 상태에 따라 다른 URL 생성
+    console.log('📊 공유 링크 생성 - 모임 정보:', {
+        name: meeting.name,
+        status: meeting.status,
+        id: meeting.id,
+        hasId: !!meeting.id
+    });
+    
+    let shareUrl;
+    if (meeting.status === 'in-progress' && meeting.id) {
+        // 진행중인 게임: 모임 ID 포함
+        shareUrl = `${baseUrl}?code=${encodeURIComponent(accessCode)}&meeting=${encodeURIComponent(meeting.id)}`;
+        console.log('🎮 진행중 게임 공유 링크 생성:', shareUrl);
     } else {
-        // 클립보드에 복사
-        navigator.clipboard.writeText(shareText).then(() => {
-            alert('공유 정보가 클립보드에 복사되었습니다.');
+        // 설정 단계 또는 일반 공유: 접속 코드만
+        shareUrl = `${baseUrl}?code=${encodeURIComponent(accessCode)}`;
+        console.log('🔧 설정 단계 공유 링크 생성:', shareUrl);
+        console.log('🔍 조건 확인 - status:', meeting.status, 'id:', meeting.id);
+    }
+    
+    // 공유 모달 열기
+    showShareModal(shareUrl, meeting);
+}
+
+// 공유 모달 표시
+function showShareModal(shareUrl, meeting) {
+    const modal = document.getElementById('share-modal');
+    const shareLinkInput = document.getElementById('share-link');
+    
+    if (modal && shareLinkInput) {
+        shareLinkInput.value = shareUrl;
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+        
+        console.log('📤 공유 링크 생성:', shareUrl);
+    }
+}
+
+// 공유 모달 닫기
+function closeShareModal() {
+    const modal = document.getElementById('share-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+}
+
+// 공유 링크 복사
+function copyShareLink() {
+    const shareLinkInput = document.getElementById('share-link');
+    if (shareLinkInput) {
+        shareLinkInput.select();
+        shareLinkInput.setSelectionRange(0, 99999); // 모바일 지원
+        
+        navigator.clipboard.writeText(shareLinkInput.value).then(() => {
+            // 복사 버튼 텍스트 일시적 변경
+            const copyBtn = document.querySelector('.copy-btn');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '복사됨!';
+            copyBtn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.style.background = '';
+            }, 2000);
+            
+            console.log('📋 링크가 클립보드에 복사됨');
+        }).catch(() => {
+            // 클립보드 API 지원하지 않는 경우 대체 방법
+            alert('링크를 수동으로 복사해주세요: ' + shareLinkInput.value);
         });
     }
 }

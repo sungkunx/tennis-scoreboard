@@ -236,10 +236,19 @@ function proceedToGame() {
         }
         
         console.log('🔍 checkBracketProgress 체크 시작');
+        
+        // 모임 ID 생성 (아직 없는 경우)
+        if (!appState.tempMeeting.id) {
+            appState.tempMeeting.id = generateMeetingId();
+            console.log('🆔 모임 ID 생성됨:', appState.tempMeeting.id);
+        }
+        
+        // 모임 상태를 '진행중'으로 변경
+        appState.tempMeeting.status = 'in-progress';
         if (checkBracketProgress()) {
             console.log('✅ checkBracketProgress 통과');
             
-            // 현재 모임 상태를 'playing'으로 변경
+            // 현재 모임 상태를 'in-progress'로 유지
             const meeting = appState.tempMeeting || appState.currentMeeting;
             console.log('📋 현재 모임:', meeting);
             
@@ -249,7 +258,8 @@ function proceedToGame() {
                 return;
             }
             
-            meeting.status = 'playing';
+            // 상태를 'in-progress'로 유지 (공유 기능을 위해)
+            meeting.status = 'in-progress';
             
             // meetings 배열에 실제 저장 (이 시점에서만!)
             if (appState.tempMeeting) {

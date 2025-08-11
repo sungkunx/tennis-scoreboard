@@ -410,14 +410,15 @@ function updateKDKGameCount() {
         return;
     }
     
-    const totalGames = memberCount; // KDK는 참가자 수 = 게임 수
-    const timeCount = Math.ceil(totalGames / courtCount);
+    // KDK는 각자 4경기씩, 하지만 코트와 타임에 따라 전체 게임수 계산
+    const baseTimeCount = 4; // KDK는 기본 4타임
+    const totalGames = courtCount * baseTimeCount;
     
     // 타임 수 자동 설정
-    document.getElementById('time-count').value = timeCount;
+    document.getElementById('time-count').value = baseTimeCount;
     
     const info = document.getElementById('game-count-info');
-    info.textContent = `총 ${totalGames}개의 게임이 생성됩니다 (${timeCount}타임)`;
+    info.textContent = `총 ${totalGames}개의 게임이 생성됩니다 (${baseTimeCount}타임)`;
     info.style.color = '';
 }
 

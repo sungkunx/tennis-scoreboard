@@ -41,10 +41,16 @@ function loadMeetings(searchTerm = '') {
         const memberNames = meeting.members ? meeting.members.map(m => m.name).join(', ') : '';
         const shortMemberNames = memberNames.length > 30 ? memberNames.substring(0, 30) + '...' : memberNames;
         
+        // 모임 상태에 따른 CSS 클래스 설정
+        const statusClass = meeting.status === 'in-progress' ? 'in-progress' : '';
+        const statusIcon = meeting.status === 'in-progress' ? '🟢' : '⚪';
+        
         html += `
-            <div class="meeting-item" onclick="selectMeeting(${originalIndex}, '${meeting.status}')">
+            <div class="meeting-item meeting-card ${statusClass}" data-meeting-id="${meeting.id || ''}" onclick="selectMeeting(${originalIndex}, '${meeting.status}')">
                 <div class="meeting-info">
-                    <div class="meeting-title">${meeting.name}</div>
+                    <div class="meeting-title">
+                        ${statusIcon} ${meeting.name}
+                    </div>
                     <div class="meeting-details">
                         ${meeting.date} | ${meeting.members.length}명 | 
                         ${meeting.status === 'completed' ? '완료' : meeting.status === 'setup' ? '모임세팅중' : '진행중'}

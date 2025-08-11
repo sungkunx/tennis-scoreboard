@@ -19,14 +19,21 @@ function initializeFirebase() {
         if (typeof firebase !== 'undefined') {
             firebase.initializeApp(firebaseConfig);
             database = firebase.database();
-            console.log('Firebase 초기화 완료');
+            console.log('✅ Firebase 초기화 완료');
+            console.log('🔗 Firebase 설정:', {
+                projectId: firebaseConfig.projectId,
+                databaseURL: firebaseConfig.databaseURL,
+                authDomain: firebaseConfig.authDomain
+            });
+            console.log('🌐 Firebase 앱 인스턴스:', firebase.app());
             return true;
         } else {
-            console.error('Firebase SDK가 로드되지 않았습니다.');
+            console.error('❌ Firebase SDK가 로드되지 않았습니다.');
             return false;
         }
     } catch (error) {
-        console.error('Firebase 초기화 실패:', error);
+        console.error('❌ Firebase 초기화 실패:', error);
+        console.error('❌ 에러 상세:', error.message, error.code);
         return false;
     }
 }
