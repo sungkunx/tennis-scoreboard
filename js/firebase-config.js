@@ -17,8 +17,18 @@ let database = null;
 function initializeFirebase() {
     try {
         if (typeof firebase !== 'undefined') {
-            firebase.initializeApp(firebaseConfig);
+            // 이미 초기화된 앱이 있는지 체크
+            if (firebase.apps.length === 0) {
+                console.log('🔄 Firebase 초기화 시작...');
+                firebase.initializeApp(firebaseConfig);
+                console.log('✅ Firebase 앱 초기화 완료');
+            } else {
+                console.log('✅ Firebase 앱이 이미 초기화됨');
+            }
+            
+            // database 참조 설정 (항상 실행)
             database = firebase.database();
+            
             console.log('✅ Firebase 초기화 완료');
             console.log('🔗 Firebase 설정:', {
                 projectId: firebaseConfig.projectId,

@@ -7,7 +7,7 @@ if (!appState.onlineMode.hasOwnProperty('connected')) {
 
 // 온라인 모드 활성화 시작
 function activateOnlineMode() {
-    showServiceCodeModal();
+    showAccessCodeModal();
 }
 
 // 서비스 코드 입력 모달
@@ -75,21 +75,22 @@ function showAccessCodeModal() {
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h3>접속 코드 입력</h3>
+                <h3>온라인 모드 활성화</h3>
                 <button class="modal-close" onclick="closeAccessCodeModal()">×</button>
             </div>
             
             <div class="modal-body">
-                <p>당신의 온라인 모드 키워드를 입력하시오:</p>
-                <input type="text" id="access-code-input" class="form-input" placeholder="접속 코드 입력" style="margin-top: 15px;">
+                <p>온라인 모드 접속 코드를 입력하세요:</p>
+                <input type="text" id="access-code-input" class="form-input" placeholder="접속 코드 입력 (예: meeting123)" style="margin-top: 15px;">
                 <p style="font-size: 12px; color: #666; margin-top: 10px;">
-                    * 같은 접속 코드를 사용하는 사람들끼리 데이터를 공유합니다
+                    * 같은 접속 코드를 사용하는 사람들끼리 데이터를 공유합니다<br>
+                    * 새로운 코드를 입력하면 새 모임 공간이 생성됩니다
                 </p>
             </div>
             
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeAccessCodeModal()">취소</button>
-                <button class="btn-primary" onclick="confirmAccessCode()">확인</button>
+                <button class="btn-primary" onclick="confirmAccessCode()">연결</button>
             </div>
         </div>
     `;
@@ -113,6 +114,11 @@ function confirmAccessCode() {
         return;
     }
     
+    if (accessCode.length < 3) {
+        alert('접속 코드는 3글자 이상이어야 합니다.');
+        return;
+    }
+    
     // Firebase 초기화 시도
     if (!isFirebaseConnected()) {
         if (!initializeFirebase()) {
@@ -122,32 +128,51 @@ function confirmAccessCode() {
         }
     }
     
-    // Firebase 연결 테스트
-    console.log('🔗 Firebase 연결 테스트 시작...');
-    database.ref('.info/connected').on('value', function(snapshot) {
-        if (snapshot.val() === true) {
-            console.log('✅ Firebase 연결 성공!');
-        } else {
-            console.log('❌ Firebase 연결 실패!');
-        }
-    });
+    // 로딩 상태 표시 (접속 코드 모달의 버튼만 선택)
+    const confirmBtn = document.querySelector('.modal-overlay .btn-primary');
+    if (!confirmBtn) {
+        console.error('❌ 접속 코드 모달의 확인 버튼을 찾을 수 없습니다');
+        return;
+    }
+    const originalText = confirmBtn.textContent;
+    confirmBtn.textContent = '연결 중...';
+    confirmBtn.disabled = true;
     
-    // 온라인 모드 활성화
-    appState.onlineMode.active = true;
-    appState.onlineMode.accessCode = accessCode;
-    appState.onlineMode.connected = true;
-    appState.mode = 'online';
+    // Firebase 연결 테스트 및 접속 코드 검증
+    console.log('🔗 Firebase 연결 및 접속 코드 검증 시작...');
     
-    closeAccessCodeModal();
-    
-    // UI 업데이트
-    updateOnlineModeUI();
-    
-    // 기존 오프라인 데이터를 온라인으로 업로드
-    uploadOfflineDataToOnline();
-    
-    // 온라인 데이터 로드
-    loadOnlineData();
+    // 직접 접속 코드 공간에 접근하여 연결 테스트
+    database.ref('accessCodes/' + accessCode).once('value')
+        .then((snapshot) => {
+            console.log('✅ Firebase 연결 및 접속 코드 검증 완료:', accessCode);
+            
+            // 온라인 모드 활성화
+            appState.onlineMode.active = true;
+            appState.onlineMode.accessCode = accessCode;
+            appState.onlineMode.connected = true;
+            appState.mode = 'online';
+            
+            closeAccessCodeModal();
+            
+            // UI 업데이트
+            updateOnlineModeUI();
+            
+            // 기존 오프라인 데이터를 온라인으로 업로드
+            uploadOfflineDataToOnline();
+            
+            // 온라인 데이터 로드
+            loadOnlineData();
+            
+            alert(`온라인 모드가 활성화되었습니다.\n접속 코드: ${accessCode}`);
+        })
+        .catch((error) => {
+            console.error('❌ 온라인 모드 활성화 실패:', error);
+            alert('온라인 모드 연결에 실패했습니다. 네트워크를 확인해주세요.');
+            
+            // 버튼 상태 복원
+            confirmBtn.textContent = originalText;
+            confirmBtn.disabled = false;
+        });
 }
 
 // 접속 코드 모달 닫기

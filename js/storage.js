@@ -43,7 +43,13 @@ function loadMeetings(searchTerm = '') {
         
         // 모임 상태에 따른 CSS 클래스 설정
         const statusClass = meeting.status === 'in-progress' ? 'in-progress' : '';
-        const statusIcon = meeting.status === 'in-progress' ? '🟢' : '⚪';
+        const statusIcon = meeting.status === 'in-progress' ? '🟢' : 
+                          (meeting.status === 'setup' || meeting.status === 'ready') ? '⚪' : '⚪';
+        
+        // 링크 복사 버튼 (진행중인 모임이고 온라인 모드인 경우만)
+        const copyButton = meeting.status === 'in-progress' && appState.onlineMode.active 
+            ? `<button class="copy-link-btn" onclick="event.stopPropagation(); copyMeetingShareLink(${JSON.stringify(meeting).replace(/"/g, '&quot;')})">🔗 링크복사</button>`
+            : '';
         
         html += `
             <div class="meeting-item meeting-card ${statusClass}" data-meeting-id="${meeting.id || ''}" onclick="selectMeeting(${originalIndex}, '${meeting.status}')">
@@ -53,13 +59,16 @@ function loadMeetings(searchTerm = '') {
                     </div>
                     <div class="meeting-details">
                         ${meeting.date} | ${meeting.members.length}명 | 
-                        ${meeting.status === 'completed' ? '완료' : meeting.status === 'setup' ? '모임세팅중' : '진행중'}
+                        ${meeting.status === 'completed' ? '완료' : (meeting.status === 'setup' || meeting.status === 'ready') ? '모임세팅중' : '진행중'}
                     </div>
                     <div class="meeting-members">
                         멤버: ${shortMemberNames}
                     </div>
                 </div>
-                <button class="delete-btn" onclick="deleteMeeting(${originalIndex}, event)">삭제</button>
+                <div class="meeting-actions">
+                    ${copyButton}
+                    <button class="delete-btn" onclick="deleteMeeting(${originalIndex}, event)">삭제</button>
+                </div>
             </div>
         `;
     });

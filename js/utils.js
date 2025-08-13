@@ -176,6 +176,26 @@ function checkGameBalance(games, members) {
     };
 }
 
+// 짧은 공유 ID 생성 (6자리 영숫자)
+function generateShortId() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 6; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
+// 접속 코드 생성 함수
+function generateAccessCode() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    let result = '';
+    for (let i = 0; i < 8; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+}
+
 // 디버그 로그 (개발용)
 function debugLog(message, data = null) {
     if (console && console.log) {

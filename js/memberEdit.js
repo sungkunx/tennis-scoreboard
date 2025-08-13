@@ -134,9 +134,11 @@ function selectAvailableMember(memberName) {
     }
     
     const memberElement = document.querySelector(`[data-member="${memberName}"]`);
+    
+    // 사용중인 멤버도 선택 가능하지만 경고 표시
     if (memberElement.classList.contains('disabled')) {
-        alert('이 멤버는 현재 타임에 다른 게임에 참여 중입니다.');
-        return;
+        console.log('⚠️ 사용중인 멤버 선택:', memberName);
+        // 경고는 표시하지 않고 그냥 진행 (교체 가능)
     }
     
     // 선택된 멤버 하이라이트
@@ -290,9 +292,9 @@ function showPlayerEditModal(game, teamNumber, memberName) {
 // 교체할 플레이어 선택
 function selectPlayerForReplace(memberName) {
     const memberElement = document.querySelector(`[data-member="${memberName}"]`);
-    if (memberElement.classList.contains('disabled')) {
-        return;
-    }
+    
+    // 사용중인 멤버도 선택 가능하게 변경 (disabled 체크 제거)
+    console.log('멤버 선택:', memberName, memberElement.classList.contains('disabled') ? '(사용중)' : '(사용가능)');
     
     // 이전 선택 해제
     document.querySelectorAll('.selectable-member').forEach(el => {
@@ -317,6 +319,15 @@ function confirmPlayerReplace() {
     
     const replacementMember = meeting.members.find(m => m.name === editState.replacementMemberName);
     if (!replacementMember) return;
+    
+    // 사용중인 멤버인 경우 확인 메시지
+    const memberElement = document.querySelector(`[data-member="${editState.replacementMemberName}"]`);
+    if (memberElement && memberElement.classList.contains('disabled')) {
+        const confirmMessage = `"${editState.replacementMemberName}"님은 현재 타임에 다른 게임에 참여 중입니다.\n\n교체하면 해당 멤버의 기존 게임 배치도 함께 변경됩니다.\n\n계속 진행하시겠습니까?`;
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+    }
     
     // 실제 교체 수행
     const teamKey = editState.currentTeam === 1 ? 'team1' : 'team2';

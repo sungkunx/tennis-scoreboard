@@ -11,6 +11,9 @@ function initializeGameScreen() {
     // 리프레시 버튼 상태 업데이트
     updateRefreshButtonState();
     
+    // 공유 링크 섹션 표시 및 링크 생성
+    initializeGameShareSection(meeting);
+    
     // 상단 순위표 표시
     displayRankingTable(meeting);
     
@@ -511,5 +514,118 @@ function finishAllGames() {
         saveMeetings();
         closeSummaryModal();
         alert('결과가 저장되었습니다.');
+    }
+}
+
+// 게임 화면 공유 링크 섹션 초기화
+function initializeGameShareSection(meeting) {
+    const shareSection = document.getElementById('share-link-section');
+    const shareInput = document.getElementById('game-share-url');
+    const copyButton = document.getElementById('copy-share-btn');
+    
+    // 온라인 모드가 아니면 공유 섹션 숨김
+    if (!appState.onlineMode.active) {
+        shareSection.style.display = 'none';
+        return;
+    }
+    
+    // 공유 섹션 표시
+    shareSection.style.display = 'block';
+    
+    // 링크 생성 중 상태
+    shareInput.placeholder = '링크를 생성하는 중...';
+    copyButton.textContent = '⏳ 생성중';
+    copyButton.disabled = true;
+    
+    // 공유 링크 생성
+    generateGameShareUrl(meeting);
+}
+
+// 게임 화면용 공유 URL 생성
+async function generateGameShareUrl(meeting) {
+    const shareInput = document.getElementById('game-share-url');
+    const copyButton = document.getElementById('copy-share-btn');
+    
+    try {
+        // 서버에 링크 생성
+        const shareUrl = await generateServerShareLink(meeting);
+        
+        if (shareUrl) {
+            // 성공: URL 표시
+            shareInput.value = shareUrl;
+            shareInput.placeholder = '';
+            copyButton.textContent = '📋 복사';
+            copyButton.disabled = false;
+            
+            console.log('✅ 게임 화면 공유 링크 생성 완료:', shareUrl);
+        } else {
+            throw new Error('링크 생성 실패');
+        }
+        
+    } catch (error) {
+        console.error('❌ 게임 화면 공유 링크 생성 실패:', error);
+        
+        // 실패: 오류 표시
+        shareInput.value = '';
+        shareInput.placeholder = '링크 생성에 실패했습니다';
+        copyButton.textContent = '❌ 실패';
+        copyButton.disabled = true;
+    }
+}
+
+// 게임 화면에서 공유 URL 복사
+async function copyGameShareUrl() {
+    const shareInput = document.getElementById('game-share-url');
+    const copyButton = document.getElementById('copy-share-btn');
+    
+    const shareUrl = shareInput.value;
+    if (!shareUrl) {
+        return;
+    }
+    
+    try {
+        // 버튼 상태 변경
+        const originalText = copyButton.textContent;
+        copyButton.textContent = '복사중...';
+        copyButton.disabled = true;
+        
+        // 클립보드에 복사
+        await navigator.clipboard.writeText(shareUrl);
+        
+        // 성공 피드백
+        copyButton.textContent = '✅ 복사됨!';
+        copyButton.className = 'copy-share-btn success';
+        
+        // 입력 필드 전체 선택 (시각적 피드백)
+        shareInput.select();
+        
+        console.log('📋 게임 화면 공유 링크 복사 완료:', shareUrl);
+        
+        // 2초 후 원래 상태로 복원
+        setTimeout(() => {
+            copyButton.textContent = originalText;
+            copyButton.className = 'copy-share-btn';
+            copyButton.disabled = false;
+            shareInput.blur(); // 선택 해제
+        }, 2000);
+        
+    } catch (error) {
+        console.error('❌ 링크 복사 실패:', error);
+        
+        // 실패 피드백
+        copyButton.textContent = '❌ 복사실패';
+        copyButton.className = 'copy-share-btn error';
+        
+        // Clipboard API 지원하지 않는 경우 대체 방법
+        shareInput.select();
+        shareInput.setSelectionRange(0, 99999); // 모바일 지원
+        alert('링크를 수동으로 복사해주세요: ' + shareUrl);
+        
+        // 2초 후 원래 상태로 복원
+        setTimeout(() => {
+            copyButton.textContent = '📋 복사';
+            copyButton.className = 'copy-share-btn';
+            copyButton.disabled = false;
+        }, 2000);
     }
 }

@@ -930,6 +930,9 @@ function regenerateBracket() {
             initializeCombinationTracking(currentBracketId + '_regenerated');
         }
         
+        // 재생성 플래그 설정 (중복 저장 방지)
+        window.isRegenerating = true;
+        
         // meeting.js의 generateBracket 호출
         if (typeof generateBracket === 'function') {
             generateBracket();

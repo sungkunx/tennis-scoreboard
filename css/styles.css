@@ -302,6 +302,146 @@ body {
     background: #ff3742;
 }
 
+/* 모임 액션 영역 */
+.meeting-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+
+/* 링크 복사 버튼 */
+.copy-link-btn {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.copy-link-btn:hover {
+    background: #138496;
+    transform: scale(1.05);
+}
+
+.copy-link-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* 피드백 상태별 색상 */
+.copy-link-btn.loading {
+    background: #6c757d;
+}
+
+.copy-link-btn.success {
+    background: #28a745;
+}
+
+.copy-link-btn.error {
+    background: #dc3545;
+}
+
+.copy-link-btn.warning {
+    background: #ffc107;
+    color: #212529;
+}
+
+/* 게임 화면 공유 링크 섹션 */
+.share-link-section {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.share-link-header {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.share-link-header h3 {
+    margin: 0 0 8px 0;
+    color: #495057;
+    font-size: 18px;
+}
+
+.share-link-header p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.share-link-container-game {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.share-url-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 14px;
+    background: white;
+    color: #495057;
+}
+
+.share-url-input:focus {
+    border-color: #80bdff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.copy-share-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.copy-share-btn:hover {
+    background: #218838;
+    transform: scale(1.02);
+}
+
+.copy-share-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.copy-share-btn.success {
+    background: #20c997;
+}
+
+.copy-share-btn.error {
+    background: #dc3545;
+}
+
+.share-link-info {
+    text-align: center;
+}
+
+.share-link-info small {
+    color: #6c757d;
+    font-size: 12px;
+}
+
 /* Button Styles */
 .add-meeting-btn {
     width: 100%;
@@ -1290,22 +1430,81 @@ body {
     transition: all 0.2s;
 }
 
-.selectable-member:hover:not(.disabled) {
+.selectable-member:hover {
     background: #e8f4fd;
     border-color: #2c5aa0;
+}
+
+.selectable-member.disabled:hover {
+    background: #ffeaa7 !important; /* disabled 호버 스타일 우선 적용 */
+    border-color: #ffc107 !important;
+    transform: translateY(-2px);
 }
 
 .selectable-member.selected {
     background: #2c5aa0;
     color: white;
     border-color: #1e3f73;
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.4);
+    transform: scale(1.05);
+}
+
+/* 사용중인 멤버가 선택되었을 때 특별한 스타일 */
+.selectable-member.disabled.selected {
+    background: #ff8f00; /* 진한 오렌지색 */
+    color: white;
+    border: 3px solid #e65100;
+    box-shadow: 0 4px 16px rgba(255, 143, 0, 0.5);
+    transform: scale(1.08);
+    opacity: 1;
+}
+
+/* 사용중 뱃지도 색상 변경 */
+.selectable-member.disabled.selected::after {
+    background: #d84315;
+    color: white;
+    animation: pulse 1.5s infinite;
+}
+
+/* 선택된 사용중 멤버의 뱃지 애니메이션 */
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* 클릭 시 즉각적인 피드백 */
+.selectable-member:active {
+    transform: scale(0.98);
+    transition: transform 0.1s;
+}
+
+.selectable-member.disabled:active {
+    transform: scale(1.02);
+    background: #ff8f00 !important;
+    border-color: #e65100 !important;
 }
 
 .selectable-member.disabled {
-    background: #e9ecef;
-    color: #6c757d;
-    cursor: not-allowed;
-    opacity: 0.6;
+    background: #fff3cd;
+    color: #856404;
+    border: 2px solid #ffeaa7;
+    cursor: pointer; /* 클릭 가능하게 변경 */
+    opacity: 0.8;
+    position: relative;
+}
+
+
+.selectable-member.disabled::after {
+    content: "사용중";
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ffc107;
+    color: #212529;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: bold;
 }
 
 .selectable-member .member-name {

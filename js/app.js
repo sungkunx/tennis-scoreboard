@@ -12,8 +12,11 @@ let appState = {
 
 // 앱 초기화
 document.addEventListener('DOMContentLoaded', function() {
-    // URL 파라미터에서 접속 코드 확인
-    checkForSharedAccessCode();
+    // Hash에서 공유 링크 확인 (우선순위 높음)
+    if (!checkForShareLink()) {
+        // 공유 링크가 없으면 URL 파라미터에서 접속 코드 확인
+        checkForSharedAccessCode();
+    }
     
     loadMeetings();
     initializeMembers();
@@ -293,45 +296,73 @@ function verifyCodeAndConnect(code, isAutoConnect = false) {
         existingFeedback.remove();
     }
     
-    // 간단한 코드 검증 (실제로는 Firebase에서 검증)
-    if (code.length >= 3) {
-        // 온라인 모드 상태 업데이트
-        appState.onlineMode.active = true;
-        appState.onlineMode.accessCode = code;
-        
-        // UI 업데이트
-        updateOnlineModeUI();
-        
-        if (isAutoConnect) {
-            showAutoConnectFeedback('✅ 공유된 게임에 성공적으로 연결되었습니다!', 'success');
-        } else {
-            alert('온라인 모드가 활성화되었습니다.');
+    // Firebase 초기화 확인
+    if (!isFirebaseConnected()) {
+        if (!initializeFirebase()) {
+            if (isAutoConnect) {
+                showAutoConnectFeedback('❌ 온라인 연결에 실패했습니다', 'error');
+            } else {
+                alert('온라인 연결에 실패했습니다.');
+            }
+            return;
         }
-        
-        console.log('✅ 온라인 모드 연결 성공:', code);
-        
-        // 대기 중인 모임 ID가 있으면 해당 모임으로 이동
-        if (window.pendingMeetingId) {
-            console.log('🎯 연결 성공! 모임 이동 준비:', window.pendingMeetingId);
-            // 연결이 완전히 완료된 후 모임으로 이동
-            setTimeout(() => {
-                attemptAutoMeetingNavigation(window.pendingMeetingId);
-                window.pendingMeetingId = null; // 사용 후 제거
-            }, 1500); // 1.5초로 증가
-        }
-        
-        // TODO: Firebase 실제 연결 로직 구현
-        
-    } else {
-        if (isAutoConnect) {
-            showAutoConnectFeedback('❌ 유효하지 않은 공유 링크입니다', 'error');
-        } else {
-            alert('잘못된 코드입니다.');
-            document.getElementById('code-input').value = '';
-        }
-        
-        console.log('❌ 코드 검증 실패:', code);
     }
+    
+    if (isAutoConnect) {
+        showAutoConnectFeedback('연결 중...', 'loading');
+    }
+    
+    // Firebase에서 실제 접속 코드 검증
+    database.ref('accessCodes/' + code).once('value')
+        .then((snapshot) => {
+            if (code.length >= 3) { // 기본 검증은 유지
+                // 온라인 모드 상태 업데이트
+                appState.onlineMode.active = true;
+                appState.onlineMode.accessCode = code;
+                appState.onlineMode.connected = true;
+                appState.mode = 'online';
+                
+                // UI 업데이트
+                updateOnlineModeUI();
+                
+                if (isAutoConnect) {
+                    showAutoConnectFeedback('✅ 공유된 게임에 성공적으로 연결되었습니다!', 'success');
+                } else {
+                    alert('온라인 모드가 활성화되었습니다.');
+                }
+                
+                console.log('✅ 온라인 모드 연결 성공:', code);
+                
+                // 온라인 데이터 로드
+                if (snapshot.val() && snapshot.val().meetings) {
+                    appState.meetings = snapshot.val().meetings;
+                    loadMeetings();
+                    console.log('📥 온라인 데이터 로드 완료');
+                }
+                
+                // 대기 중인 모임 ID가 있으면 해당 모임으로 이동
+                if (window.pendingMeetingId) {
+                    console.log('🎯 연결 성공! 모임 이동 준비:', window.pendingMeetingId);
+                    // 연결이 완전히 완료된 후 모임으로 이동
+                    setTimeout(() => {
+                        attemptAutoMeetingNavigation(window.pendingMeetingId);
+                        window.pendingMeetingId = null; // 사용 후 제거
+                    }, 1500);
+                }
+                
+            } else {
+                throw new Error('접속 코드가 너무 짧습니다');
+            }
+        })
+        .catch((error) => {
+            console.error('❌ 접속 코드 검증 실패:', error);
+            if (isAutoConnect) {
+                showAutoConnectFeedback('❌ 접속 코드 검증에 실패했습니다', 'error');
+            } else {
+                alert('접속 코드 검증에 실패했습니다.');
+                document.getElementById('code-input').value = '';
+            }
+        });
 }
 
 // 온라인 모드 UI 업데이트
@@ -401,8 +432,7 @@ function proceedWithMeeting(targetMeeting) {
         showAutoConnectFeedback(`"${targetMeeting.name}" 게임에 참여합니다!`, 'success');
         
         setTimeout(() => {
-            showScreen('game-screen');
-            initializeGameScreen();
+            showGameScreen(); // 올바른 함수 호출
         }, 1500);
         
     } else {

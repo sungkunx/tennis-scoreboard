@@ -458,16 +458,23 @@ function generateRandomBracket() {
     };
     appState.tempMeeting.step = 'step2-completed';
     
-    // Step2 완료 시 임시 저장
-    saveStepProgress();
+    // Step2 완료 시 임시 저장 (최초 생성 시만, 재생성이 아닌 경우만)
+    if (!appState.tempMeeting.bracket && !window.isRegenerating) {
+        saveStepProgress();
+    }
     
     // 대진표 생성
     const bracket = createRandomBracket(appState.tempMeeting.members, courtCount, timeCount, genderSeparate, skillBalance);
     appState.tempMeeting.bracket = bracket;
     appState.tempMeeting.step = 'bracket-generated';
     
-    // 대진표 생성 시 임시 저장
-    saveStepProgress();
+    // 대진표 생성 시 임시 저장 (재생성이 아닌 경우만)
+    if (!window.isRegenerating && appState.tempMeeting.status !== 'ready') {
+        saveStepProgress();
+    }
+    
+    // 재생성 플래그 초기화
+    window.isRegenerating = false;
     
     // 대진표 상태만 업데이트, 아직 저장하지 않음
     appState.tempMeeting.status = 'ready';

@@ -4,17 +4,25 @@
 function saveStepProgress() {
     if (!appState.tempMeeting) return;
     
-    // 기존 모임 목록에서 같은 이름의 임시 모임이 있는지 확인
+    // ID가 없으면 생성
+    if (!appState.tempMeeting.id) {
+        appState.tempMeeting.id = generateMeetingId();
+        console.log('🆔 임시 모임 ID 생성:', appState.tempMeeting.id);
+    }
+    
+    // 기존 모임 목록에서 같은 ID의 모임이 있는지 확인
     const existingIndex = appState.meetings.findIndex(meeting => 
-        meeting.name === appState.tempMeeting.name && meeting.status === 'setup'
+        meeting.id === appState.tempMeeting.id
     );
     
     if (existingIndex !== -1) {
-        // 기존 임시 모임 업데이트
+        // 기존 모임 업데이트
         appState.meetings[existingIndex] = { ...appState.tempMeeting };
+        console.log('🔄 기존 모임 업데이트:', appState.tempMeeting.name);
     } else {
-        // 새로운 임시 모임 추가
+        // 새로운 모임 추가
         appState.meetings.push({ ...appState.tempMeeting });
+        console.log('➕ 새로운 모임 추가:', appState.tempMeeting.name);
     }
     
     // 저장
