@@ -114,22 +114,70 @@ function createManualBracket(members, courtCount, timeCount, gameTypes) {
         상관없음: anyGenderMembers.length
     });
 
-    // 각 게임 생성 및 선수 배정
+    // 전체 조정사항 추적
+    let globalAdjustments = [];
+    
+    // 타임별 게임 생성 및 선수 배정
     for (let time = 1; time <= timeCount; time++) {
+        console.log(`\n🏓 타임 ${time} 게임 생성 시작`);
+        
+        // 현재 타임의 게임 타입들 추출
+        const timeGameTypes = [];
         for (let court = 1; court <= courtCount; court++) {
             const gameIndex = (time - 1) * courtCount + (court - 1);
-            const gameType = gameTypes[gameIndex];
+            timeGameTypes.push(gameTypes[gameIndex]);
+        }
+        
+        // 타임별 게임 타입 검증 및 자동 조정
+        const { adjustedTypes, adjustments } = adjustGameTypesForAvailability(
+            timeGameTypes, maleMembers, femaleMembers, anyGenderMembers
+        );
+        
+        if (adjustments.length > 0) {
+            globalAdjustments.push(`타임 ${time}: ${adjustments.join(', ')}`);
+        }
+        
+        // 타임별 멤버 풀 생성
+        const timeMemberPool = createTimeMemberPool(maleMembers, femaleMembers, anyGenderMembers);
+        
+        // 각 코트별 게임 생성
+        for (let court = 1; court <= courtCount; court++) {
+            const adjustedGameType = adjustedTypes[court - 1];
             
-            // 게임 타입에 따른 팀 생성
-            const teams = createTeamsForGameType(
-                gameType, maleMembers, femaleMembers, anyGenderMembers, 
-                memberGameCount, bracketId
+            console.log(`🎯 타임 ${time} 코트 ${court} (${adjustedGameType}) 팀 생성 시작`);
+            
+            // 현재 풀에서 사용 가능한 멤버들 가져오기
+            const availableMembers = timeMemberPool.getAvailableForGameType(adjustedGameType);
+            
+            if (availableMembers.length < 4) {
+                console.warn(`❌ 타임 ${time} 코트 ${court}: 사용 가능한 멤버 부족 (${availableMembers.length}명)`);
+                continue;
+            }
+            
+            // 팀 생성 (풀별 전용 함수 사용)
+            const teams = createTeamsFromPool(
+                adjustedGameType, availableMembers, memberGameCount, 
+                timeMemberPool, maleMembers, femaleMembers, anyGenderMembers
             );
             
             if (!teams) {
-                console.warn(`❌ 타임 ${time} 코트 ${court} (${gameType}) 팀 생성 실패`);
+                console.warn(`❌ 타임 ${time} 코트 ${court} (${adjustedGameType}) 팀 생성 실패`);
                 continue;
             }
+            
+            // 사용된 멤버들을 풀에서 제거
+            const usedMembers = [...teams.team1, ...teams.team2];
+            timeMemberPool.removeMembersFromPool(usedMembers);
+            
+            console.log(`✅ 타임 ${time} 코트 ${court} 팀 생성 완료:`, {
+                팀1: teams.team1.map(m => m.name),
+                팀2: teams.team2.map(m => m.name),
+                남은멤버수: {
+                    남성: timeMemberPool.male.length,
+                    여성: timeMemberPool.female.length,
+                    상관없음: timeMemberPool.any.length
+                }
+            });
 
             const game = {
                 id: `${time}-${court}`,
@@ -139,7 +187,7 @@ function createManualBracket(members, courtCount, timeCount, gameTypes) {
                 team2: teams.team2,
                 score: { team1: 0, team2: 0 },
                 status: 'pending',
-                gameType: gameType
+                gameType: adjustedGameType
             };
             
             games.push(game);
@@ -148,6 +196,14 @@ function createManualBracket(members, courtCount, timeCount, gameTypes) {
             teams.team1.forEach(member => memberGameCount[member.name]++);
             teams.team2.forEach(member => memberGameCount[member.name]++);
         }
+    }
+    
+    // 자동 조정이 있었다면 사용자에게 알림
+    if (globalAdjustments.length > 0) {
+        const adjustmentMessage = `일부 게임 타입이 자동으로 조정되었습니다:\n\n${globalAdjustments.join('\n')}\n\n멤버 구성상 불가능한 조합을 방지하기 위한 자동 조정입니다.`;
+        setTimeout(() => {
+            alert(adjustmentMessage);
+        }, 100);
     }
 
     console.log('✅ 수동 대진표 생성 완료:', { 
@@ -260,6 +316,254 @@ function createMixedTeamsAdvanced(availableMembers, memberGameCount, maleMembers
     console.log(`🔄 혼복 조합 재사용 (${manualUsedCombinations.get(key)}번째):`, key);
     
     return bestCombo;
+}
+
+// 타임별 게임 타입 조합 검증
+function validateTimeGameTypes(timeGameTypes, maleMembers, femaleMembers, anyGenderMembers) {
+    let requiredMales = 0;
+    let requiredFemales = 0;
+    
+    timeGameTypes.forEach(gameType => {
+        switch(gameType) {
+            case 'male': 
+                requiredMales += 4; 
+                break;
+            case 'female': 
+                requiredFemales += 4; 
+                break;
+            case 'mixed': 
+                requiredMales += 2; 
+                requiredFemales += 2; 
+                break;
+        }
+    });
+    
+    const availableMales = maleMembers.length + anyGenderMembers.length;
+    const availableFemales = femaleMembers.length + anyGenderMembers.length;
+    
+    const valid = requiredMales <= availableMales && requiredFemales <= availableFemales;
+    
+    console.log(`🔍 타임 검증:`, {
+        게임타입: timeGameTypes,
+        필요남성: requiredMales,
+        필요여성: requiredFemales,
+        사용가능남성: availableMales,
+        사용가능여성: availableFemales,
+        유효성: valid ? '✅' : '❌'
+    });
+    
+    return {
+        valid,
+        requiredMales, 
+        requiredFemales, 
+        availableMales, 
+        availableFemales
+    };
+}
+
+// 게임 타입 자동 조정 (물리적 불가능한 조합 해결)
+function adjustGameTypesForAvailability(timeGameTypes, maleMembers, femaleMembers, anyGenderMembers) {
+    const adjustedTypes = [...timeGameTypes];
+    let adjustments = [];
+    
+    // 최대 5번 조정 시도
+    for (let attempt = 0; attempt < 5; attempt++) {
+        const validation = validateTimeGameTypes(adjustedTypes, maleMembers, femaleMembers, anyGenderMembers);
+        
+        if (validation.valid) {
+            if (adjustments.length > 0) {
+                console.log('🔧 게임 타입 자동 조정 완료:', adjustments);
+            }
+            return { adjustedTypes, adjustments };
+        }
+        
+        // 조정 전략: 부족한 성별의 게임을 혼복으로 변경
+        let adjusted = false;
+        
+        if (validation.requiredFemales > validation.availableFemales) {
+            // 여성 부족: 여복을 혼복으로 변경
+            for (let i = 0; i < adjustedTypes.length; i++) {
+                if (adjustedTypes[i] === 'female') {
+                    adjustedTypes[i] = 'mixed';
+                    adjustments.push(`${i+1}번째 게임: 여복 → 혼복 (여성 부족)`);
+                    adjusted = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!adjusted && validation.requiredMales > validation.availableMales) {
+            // 남성 부족: 남복을 혼복으로 변경
+            for (let i = 0; i < adjustedTypes.length; i++) {
+                if (adjustedTypes[i] === 'male') {
+                    adjustedTypes[i] = 'mixed';
+                    adjustments.push(`${i+1}번째 게임: 남복 → 혼복 (남성 부족)`);
+                    adjusted = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!adjusted) {
+            // 더 이상 조정할 수 없음
+            break;
+        }
+    }
+    
+    return { adjustedTypes, adjustments };
+}
+
+// 타임별 멤버 풀 생성
+function createTimeMemberPool(maleMembers, femaleMembers, anyGenderMembers) {
+    return {
+        male: [...maleMembers],
+        female: [...femaleMembers], 
+        any: [...anyGenderMembers],
+        
+        // 게임 타입별 사용 가능한 멤버 반환
+        getAvailableForGameType(gameType) {
+            switch(gameType) {
+                case 'male':
+                    return [...this.male, ...this.any];
+                case 'female':
+                    return [...this.female, ...this.any];
+                case 'mixed':
+                    return [...this.male, ...this.female, ...this.any];
+                default:
+                    return [];
+            }
+        },
+        
+        // 사용된 멤버들 풀에서 제거
+        removeMembersFromPool(usedMembers) {
+            usedMembers.forEach(member => {
+                this.male = this.male.filter(m => m.name !== member.name);
+                this.female = this.female.filter(m => m.name !== member.name);
+                this.any = this.any.filter(m => m.name !== member.name);
+            });
+        }
+    };
+}
+
+// 타임별 멤버 풀에서 팀 생성
+function createTeamsFromPool(gameType, availableMembers, memberGameCount, timeMemberPool, maleMembers, femaleMembers, anyGenderMembers) {
+    console.log(`🎯 풀에서 ${gameType} 팀 생성 시작 (사용 가능 멤버: ${availableMembers.length}명)`);
+    
+    if (availableMembers.length < 4) {
+        return null;
+    }
+    
+    // 혼복의 경우 성별 균형을 고려한 특별 처리
+    if (gameType === 'mixed') {
+        return createMixedTeamsFromPool(availableMembers, memberGameCount, timeMemberPool);
+    } else {
+        // 남복/여복의 경우 새로운 조합 찾기 로직 사용
+        return findBestManualTeamCombination(availableMembers, memberGameCount);
+    }
+}
+
+// 풀에서 혼복 팀 생성 (성별 균형 고려)
+function createMixedTeamsFromPool(availableMembers, memberGameCount, timeMemberPool) {
+    const maleAvailable = timeMemberPool.male.concat(timeMemberPool.any);
+    const femaleAvailable = timeMemberPool.female.concat(timeMemberPool.any);
+    
+    // 최소 남녀 각각 2명씩 필요
+    if (maleAvailable.length < 2 || femaleAvailable.length < 2) {
+        console.warn('풀에서 혼복 게임을 위한 남녀 멤버가 부족합니다');
+        // 부족한 경우에도 가능한 조합으로 진행
+        return findBestManualTeamCombination(availableMembers, memberGameCount);
+    }
+    
+    // 게임 수가 적은 멤버들 우선 선택
+    maleAvailable.sort((a, b) => (memberGameCount[a.name] || 0) - (memberGameCount[b.name] || 0));
+    femaleAvailable.sort((a, b) => (memberGameCount[a.name] || 0) - (memberGameCount[b.name] || 0));
+    
+    // 이상적인 혼복 구성: 각 팀에 남녀 1명씩
+    const male1 = maleAvailable[0];
+    const male2 = maleAvailable[1];
+    const female1 = femaleAvailable[0];
+    const female2 = femaleAvailable[1];
+    
+    // 가능한 혼복 조합들
+    const mixedCombinations = [
+        { team1: [male1, female1], team2: [male2, female2] },
+        { team1: [male1, female2], team2: [male2, female1] }
+    ];
+    
+    // 사용하지 않은 조합 우선 선택
+    for (const combo of mixedCombinations) {
+        const key = getManualCombinationKey(combo.team1, combo.team2);
+        if (!manualUsedCombinations.has(key)) {
+            manualUsedCombinations.set(key, 1);
+            console.log('✨ 새로운 풀 혼복 조합 사용:', key);
+            return combo;
+        }
+    }
+    
+    // 모든 조합이 사용되었다면 가장 적게 사용된 조합 선택
+    let bestCombo = mixedCombinations[0];
+    let minUsage = Infinity;
+    
+    for (const combo of mixedCombinations) {
+        const key = getManualCombinationKey(combo.team1, combo.team2);
+        const usage = manualUsedCombinations.get(key) || 0;
+        if (usage < minUsage) {
+            minUsage = usage;
+            bestCombo = combo;
+        }
+    }
+    
+    const key = getManualCombinationKey(bestCombo.team1, bestCombo.team2);
+    manualUsedCombinations.set(key, (manualUsedCombinations.get(key) || 0) + 1);
+    console.log(`🔄 풀 혼복 조합 재사용 (${manualUsedCombinations.get(key)}번째):`, key);
+    
+    return bestCombo;
+}
+
+// 타임별 게임 타입 검증 및 자동 조정 (자동 입력 버튼용)
+function validateAndAdjustGameTypesByTime(gameTypes, courtCount, timeCount, maleMembers, femaleMembers, anyGenderMembers) {
+    const adjustedGameTypes = [...gameTypes];
+    let totalAdjustments = [];
+    
+    console.log('🔍 타임별 게임 타입 검증 시작');
+    
+    // 각 타임별로 검증 및 조정
+    for (let time = 1; time <= timeCount; time++) {
+        // 현재 타임의 게임 타입들 추출
+        const timeGameTypes = [];
+        for (let court = 1; court <= courtCount; court++) {
+            const gameIndex = (time - 1) * courtCount + (court - 1);
+            timeGameTypes.push(adjustedGameTypes[gameIndex]);
+        }
+        
+        console.log(`🏓 타임 ${time} 검증:`, timeGameTypes);
+        
+        // 타임별 게임 타입 검증 및 자동 조정
+        const { adjustedTypes, adjustments } = adjustGameTypesForAvailability(
+            timeGameTypes, maleMembers, femaleMembers, anyGenderMembers
+        );
+        
+        if (adjustments.length > 0) {
+            totalAdjustments.push(`타임 ${time}: ${adjustments.join(', ')}`);
+            
+            // 조정된 게임 타입을 전체 배열에 반영
+            for (let court = 1; court <= courtCount; court++) {
+                const gameIndex = (time - 1) * courtCount + (court - 1);
+                adjustedGameTypes[gameIndex] = adjustedTypes[court - 1];
+            }
+            
+            console.log(`🔧 타임 ${time} 조정 결과:`, adjustedTypes);
+        }
+    }
+    
+    if (totalAdjustments.length > 0) {
+        console.log('📋 전체 자동 조정 결과:', totalAdjustments);
+    }
+    
+    return { 
+        adjustedGameTypes, 
+        totalAdjustments 
+    };
 }
 
 
@@ -600,15 +904,27 @@ function autoFillGameTypes() {
     const timeCount = parseInt(document.getElementById('time-count').value);
     const totalGames = courtCount * timeCount;
     
-    // 멤버 성별 분석
-    const maleCount = members.filter(m => m.gender === '남').length;
-    const femaleCount = members.filter(m => m.gender === '여').length;
-    const anyGenderCount = members.filter(m => m.gender === '상관없음').length;
+    // 멤버 성별별 분류
+    const maleMembers = members.filter(m => m.gender === '남');
+    const femaleMembers = members.filter(m => m.gender === '여');
+    const anyGenderMembers = members.filter(m => m.gender === '상관없음');
     
-    console.log('👥 멤버 구성 분석:', { 남성: maleCount, 여성: femaleCount, 상관없음: anyGenderCount });
+    console.log('👥 멤버 구성 분석:', { 
+        남성: maleMembers.length, 
+        여성: femaleMembers.length, 
+        상관없음: anyGenderMembers.length 
+    });
     
-    // 최적 복식 속성 결정 로직
-    const gameTypes = determineOptimalGameTypes(totalGames, maleCount, femaleCount, anyGenderCount);
+    // 초기 게임 타입 결정
+    let gameTypes = determineOptimalGameTypes(totalGames, maleMembers.length, femaleMembers.length, anyGenderMembers.length);
+    console.log('📋 초기 게임 타입 결정:', gameTypes);
+    
+    // 타임별 검증 및 자동 조정 적용
+    const { adjustedGameTypes, totalAdjustments } = validateAndAdjustGameTypesByTime(
+        gameTypes, courtCount, timeCount, maleMembers, femaleMembers, anyGenderMembers
+    );
+    
+    gameTypes = adjustedGameTypes;
     
     // 게임 타입을 화면에 반영
     applyGameTypesToUI(gameTypes, courtCount, timeCount);
@@ -623,7 +939,14 @@ function autoFillGameTypes() {
     updateGameTypeCounter();
     
     console.log('✅ 자동 입력 완료:', gameTypes);
-    alert('현재 멤버 구성에 맞게 복식 속성이 자동으로 설정되었습니다!');
+    
+    // 사용자 알림 (자동 조정이 있었다면 포함)
+    let message = '현재 멤버 구성에 맞게 복식 속성이 자동으로 설정되었습니다!';
+    if (totalAdjustments.length > 0) {
+        message += '\n\n일부 게임 타입이 자동으로 조정되었습니다:\n' + totalAdjustments.join('\n') + '\n\n멤버 구성상 불가능한 조합을 방지하기 위한 자동 조정입니다.';
+    }
+    
+    alert(message);
 }
 
 // 최적 복식 속성 결정
