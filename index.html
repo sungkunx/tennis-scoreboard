@@ -201,6 +201,14 @@
             <!-- 셀프 대진표 생성 섹션 -->
             <div class="form-section" id="manual-bracket-settings" style="display: none;">
                 <label class="form-label">게임별 복식 속성 설정</label>
+                <div class="manual-bracket-controls">
+                    <button class="btn-auto-fill" onclick="autoFillGameTypes()">현재 멤버 구성으로 자동 입력</button>
+                    <div class="game-type-counter" id="game-type-counter">
+                        <span class="counter-item">남복: <span id="male-count">0</span>개</span>
+                        <span class="counter-item">여복: <span id="female-count">0</span>개</span>
+                        <span class="counter-item">혼복: <span id="mixed-count">0</span>개</span>
+                    </div>
+                </div>
                 <p class="info-text">각 게임의 복식 속성(남복/여복/혼복)을 선택하세요</p>
                 <div id="manual-games-grid" class="manual-games-grid">
                     <!-- 동적으로 생성될 게임 그리드 -->
@@ -311,9 +319,15 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     
     <!-- JavaScript 파일들 로드 -->
-    <script src="js/app.js"></script>
+    <!-- 핵심 초기화 스크립트들 (의존성 순서대로) -->
     <script src="js/utils.js"></script>
     <script src="js/firebase-config.js"></script>
+    
+    <!-- appState 정의 (다른 파일들이 의존) -->
+    <script src="js/app.js"></script>
+    
+    <!-- appState에 의존하는 파일들 -->
+    <script src="js/share-links.js"></script>
     <script src="js/online-mode.js"></script>
     <script src="js/storage.js"></script>
     <script src="js/meeting.js"></script>
@@ -327,6 +341,14 @@
     <script src="js/existing-members.js"></script>
     <script src="js/stepSaving.js"></script>
     <script src="js/manualBracket.js"></script>
-    <script src="js/share-links.js"></script>
+    
+    <!-- 모든 스크립트 로드 후 앱 초기화 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 DOM 로드 완료, 앱 초기화 시작...');
+            initializeApp();
+            console.log('✅ 앱 초기화 완료');
+        });
+    </script>
 </body>
 </html>

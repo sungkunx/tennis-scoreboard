@@ -12,6 +12,7 @@ function initializeMembers() {
     }
     
     updateMeetingNamePlaceholder();
+    updateRemoveButtonStates(); // 초기화 시 삭제 버튼 상태 설정
 }
 
 // 멤버 항목 추가
@@ -45,10 +46,13 @@ function addMemberItem(index) {
             <option value="8">8</option>
             <option value="9">9(테신테왕)</option>
         </select>
-        ${memberCount >= 4 ? '<button class="remove-member" onclick="removeMember(this)">×</button>' : '<div style="width: 60px;"></div>'}
+        <button class="remove-member" onclick="removeMember(this)">×</button>
     `;
     
     memberList.appendChild(memberDiv);
+    
+    // 삭제 버튼 상태 업데이트
+    updateRemoveButtonStates();
 }
 
 // 멤버 추가
@@ -62,11 +66,20 @@ function addMember() {
     addMemberItem(memberList.children.length);
     updateMeetingNamePlaceholder(); // 멤버 추가 시 모임 이름 업데이트
     updateGenderWarning(); // 성별 경고 업데이트
+    updateRemoveButtonStates(); // 삭제 버튼 상태 업데이트
 }
 
 // 멤버 제거
 function removeMember(button) {
     const memberList = document.getElementById('member-list');
+    
+    // 버튼이 비활성화된 경우 제거 차단
+    if (button.disabled) {
+        alert('최소 4명의 멤버가 필요합니다.');
+        return;
+    }
+    
+    // 4명 이하로 내려가는 경우 예방
     if (memberList.children.length <= 4) {
         alert('최소 4명의 멤버가 필요합니다.');
         return;
@@ -75,6 +88,36 @@ function removeMember(button) {
     button.parentElement.remove();
     updateMeetingNamePlaceholder(); // 멤버 제거 시 모임 이름 업데이트
     updateGenderWarning(); // 성별 경고 업데이트
+    updateRemoveButtonStates(); // 삭제 버튼 상태 업데이트
+}
+
+// 삭제 버튼 상태 업데이트
+function updateRemoveButtonStates() {
+    const memberList = document.getElementById('member-list');
+    if (!memberList) return;
+    
+    const memberCount = memberList.children.length;
+    const removeButtons = memberList.querySelectorAll('.remove-member');
+    
+    // 4명일 때만 모든 삭제 버튼 비활성화
+    const shouldDisable = memberCount <= 4;
+    
+    removeButtons.forEach((button, index) => {
+        button.disabled = shouldDisable;
+        
+        // 비활성화 상태 시각적 표현
+        if (shouldDisable) {
+            button.style.opacity = '0.4';
+            button.style.cursor = 'not-allowed';
+            button.title = '최소 4명의 멤버가 필요합니다';
+        } else {
+            button.style.opacity = '1';
+            button.style.cursor = 'pointer';
+            button.title = '이 멤버를 삭제합니다';
+        }
+    });
+    
+    console.log(`🔘 삭제 버튼 상태 업데이트: ${memberCount}명, 비활성화: ${shouldDisable}`);
 }
 
 // 모임 이름 자동 생성
@@ -240,6 +283,7 @@ function populateStep1Form(meeting) {
         });
         
         updateMeetingNamePlaceholder();
+        updateRemoveButtonStates(); // 기존 데이터 로드 후 삭제 버튼 상태 설정
     }
 }
 
@@ -248,151 +292,7 @@ function editMeeting() {
     editMeetingFromBracket();
 }
 
-// 대진표 타입 변경 처리
-function handleBracketTypeChange() {
-    const bracketType = document.querySelector('input[name="bracket-type"]:checked').value;
-    
-    if (bracketType === 'kdk') {
-        setupKDKMode();
-    } else if (bracketType === 'manual') {
-        setupManualMode();
-    } else {
-        setupRandomMode();
-    }
-}
-
-// KDK 모드 설정
-function setupKDKMode() {
-    // 조건 설정 섹션 완전 교체
-    const checkboxGroup = document.querySelector('#condition-settings .checkbox-group');
-    checkboxGroup.innerHTML = `
-        <label class="checkbox-option" id="kdk-skill-balance-option">
-            <input type="checkbox" id="kdk-skill-balance">
-            <span>실력 구분 (A일수록 높은 실력, 미선택시 전체 랜덤)</span>
-        </label>
-    `;
-    
-    // 타임 수 비활성화 (자동 계산)
-    const timeCountGroup = document.getElementById('time-count-group');
-    const timeCountInput = document.getElementById('time-count');
-    timeCountGroup.style.opacity = '0.5';
-    timeCountInput.disabled = true;
-    
-    // 조건 설명 변경
-    const conditionInfo = document.getElementById('condition-info');
-    conditionInfo.textContent = '* KDK 방식: 5~10명, 각 참가자 4게임 고정, 실력별 번호 배정';
-    
-    // 셀프 대진표 설정 섹션 숨기기
-    const manualBracketSettings = document.getElementById('manual-bracket-settings');
-    if (manualBracketSettings) {
-        manualBracketSettings.style.display = 'none';
-    }
-    
-    updateKDKGameCount();
-}
-
-// 랜덤 모드 설정
-function setupRandomMode() {
-    // 조건 설정 섹션 원래대로 복원
-    const checkboxGroup = document.querySelector('#condition-settings .checkbox-group');
-    checkboxGroup.innerHTML = `
-        <label class="checkbox-option" id="gender-separate-option">
-            <input type="checkbox" id="gender-separate">
-            <span>성별 구분 (남복/여복 구분)</span>
-        </label>
-        <label class="checkbox-option" id="skill-balance-option">
-            <input type="checkbox" id="skill-balance">
-            <span>실력 구분 (가능한 상대팀은 실력이 비슷하게 설정)</span>
-        </label>
-    `;
-    
-    // 타임 수 활성화
-    const timeCountGroup = document.getElementById('time-count-group');
-    const timeCountInput = document.getElementById('time-count');
-    timeCountGroup.style.opacity = '1';
-    timeCountInput.disabled = false;
-    
-    // 조건 설명 복원
-    const conditionInfo = document.getElementById('condition-info');
-    conditionInfo.textContent = '* 다음 단계에서 대진표가 나오면 수정이 가능합니다';
-    
-    // 셀프 대진표 설정 섹션 숨기기
-    const manualBracketSettings = document.getElementById('manual-bracket-settings');
-    if (manualBracketSettings) {
-        manualBracketSettings.style.display = 'none';
-    }
-    
-    updateGameCountInfo();
-}
-
-// 셀프 대진표 모드 설정
-function setupManualMode() {
-    // 조건 설정 섹션에서 성별 매칭 옵션 비활성화
-    const checkboxGroup = document.querySelector('#condition-settings .checkbox-group');
-    checkboxGroup.innerHTML = `
-        <label class="checkbox-option disabled" id="gender-separate-option">
-            <input type="checkbox" id="gender-separate" disabled>
-            <span>성별 매칭 (셀프 대진표에서는 사용할 수 없음)</span>
-        </label>
-        <label class="checkbox-option" id="skill-balance-option">
-            <input type="checkbox" id="skill-balance">
-            <span>실력 구분 (가능한 상대팀은 실력이 비슷하게 설정)</span>
-        </label>
-    `;
-    
-    // 타임 수 활성화
-    const timeCountGroup = document.getElementById('time-count-group');
-    const timeCountInput = document.getElementById('time-count');
-    timeCountGroup.style.opacity = '1';
-    timeCountInput.disabled = false;
-    
-    // 조건 설명 변경
-    const conditionInfo = document.getElementById('condition-info');
-    conditionInfo.textContent = '* 셀프 대진표 모드에서는 직접 게임별 복식 속성을 설정할 수 있습니다';
-    
-    // 셀프 대진표 설정 섹션 표시
-    const manualBracketSettings = document.getElementById('manual-bracket-settings');
-    if (manualBracketSettings) {
-        manualBracketSettings.style.display = 'block';
-        // manualBracket.js의 generateManualGamesGrid()가 호출됨
-    }
-    
-    updateGameCountInfo();
-}
-
-// 셀프 대진표 게임 그리드 생성 (Select 방식 - 사용 안함)
-function generateManualGamesGridSelect() {
-    const courtCount = parseInt(document.getElementById('court-count')?.value || 2);
-    const timeCount = parseInt(document.getElementById('time-count')?.value || 4);
-    const totalGames = courtCount * timeCount;
-    
-    const gridContainer = document.getElementById('manual-games-grid');
-    if (!gridContainer) return;
-    
-    gridContainer.innerHTML = '';
-    
-    for (let time = 1; time <= timeCount; time++) {
-        for (let court = 1; court <= courtCount; court++) {
-            const gameIndex = (time - 1) * courtCount + court - 1;
-            const gameDiv = document.createElement('div');
-            gameDiv.className = 'manual-game-item';
-            gameDiv.innerHTML = `
-                <div class="game-info">
-                    <strong>${time}타임 ${court}코트</strong>
-                </div>
-                <div class="game-type-selector">
-                    <label>복식 속성:</label>
-                    <select class="game-type-select" data-game-index="${gameIndex}">
-                        <option value="mixed">혼복 (남녀혼합)</option>
-                        <option value="male">남복 (남성끼리)</option>
-                        <option value="female">여복 (여성끼리)</option>
-                    </select>
-                </div>
-            `;
-            gridContainer.appendChild(gameDiv);
-        }
-    }
-}
+// 대진표 타입 변경 처리와 setup 함수들은 manualBracket.js에서 통합 처리됨
 
 // KDK 게임 수 업데이트
 function updateKDKGameCount() {

@@ -10,10 +10,10 @@ let appState = {
     }
 };
 
-// 앱 초기화
-document.addEventListener('DOMContentLoaded', function() {
+// 앱 초기화 함수 (모든 스크립트 로드 후 호출)
+function initializeApp() {
     // Hash에서 공유 링크 확인 (우선순위 높음)
-    if (!checkForShareLink()) {
+    if (typeof checkForShareLink === 'function' && !checkForShareLink()) {
         // 공유 링크가 없으면 URL 파라미터에서 접속 코드 확인
         checkForSharedAccessCode();
     }
@@ -22,22 +22,34 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeMembers();
     updateGameCountInfo();
     
+    
     // 이벤트 리스너 추가
     document.addEventListener('change', function(e) {
         if (e.target.id === 'court-count' || e.target.id === 'time-count') {
             updateGameCountInfo();
+            
+            // 셀프 대진표 생성이 선택된 경우 수동 게임 그리드도 업데이트
+            const selectedBracketType = document.querySelector('input[name="bracket-type"]:checked');
+            if (selectedBracketType && selectedBracketType.value === 'manual') {
+                if (typeof generateManualGamesGrid === 'function') {
+                    generateManualGamesGrid();
+                }
+            }
         }
     });
     
     // 대진표 카드 클릭 이벤트 리스너 추가 (이벤트 위임)
     document.addEventListener('click', function(e) {
+        console.log('🖱️ 클릭 이벤트 감지:', e.target);
         const bracketCard = e.target.closest('.bracket-card');
         if (bracketCard && bracketCard.dataset.bracketType) {
-            console.log('Bracket card clicked:', bracketCard.dataset.bracketType);
+            console.log('✅ 대진표 카드 클릭됨:', bracketCard.dataset.bracketType);
             selectBracketType(bracketCard.dataset.bracketType);
+        } else if (e.target.classList.contains('bracket-card') || e.target.closest('.bracket-card')) {
+            console.log('⚠️ 대진표 카드 감지되었지만 dataset이 없음:', e.target);
         }
     });
-});
+}
 
 // URL 파라미터에서 공유된 접속 코드 및 모임 정보 확인
 function checkForSharedAccessCode() {
@@ -312,13 +324,16 @@ function verifyCodeAndConnect(code, isAutoConnect = false) {
         showAutoConnectFeedback('연결 중...', 'loading');
     }
     
+    // 접속 코드를 소문자로 변환 (대소문자 구분 제거)
+    const normalizedCode = code.toLowerCase();
+    
     // Firebase에서 실제 접속 코드 검증
-    database.ref('accessCodes/' + code).once('value')
+    database.ref('accessCodes/' + normalizedCode).once('value')
         .then((snapshot) => {
             if (code.length >= 3) { // 기본 검증은 유지
-                // 온라인 모드 상태 업데이트
+                // 온라인 모드 상태 업데이트 (정규화된 코드 저장)
                 appState.onlineMode.active = true;
-                appState.onlineMode.accessCode = code;
+                appState.onlineMode.accessCode = normalizedCode;
                 appState.onlineMode.connected = true;
                 appState.mode = 'online';
                 
@@ -331,7 +346,7 @@ function verifyCodeAndConnect(code, isAutoConnect = false) {
                     alert('온라인 모드가 활성화되었습니다.');
                 }
                 
-                console.log('✅ 온라인 모드 연결 성공:', code);
+                console.log('✅ 온라인 모드 연결 성공:', normalizedCode, '(원본:', code, ')');
                 
                 // 온라인 데이터 로드
                 if (snapshot.val() && snapshot.val().meetings) {

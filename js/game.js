@@ -474,8 +474,13 @@ function showGameSummary() {
     showSummaryModal(summaryText);
 }
 
-// 결과 요약 모달 표시
+// 결과 요약 모달 표시 (상세 게임별 결과 포함)
 function showSummaryModal(summaryText) {
+    const meeting = appState.currentMeeting;
+    if (!meeting) return;
+    
+    // 사용되지 않는 변수 제거
+    
     const modal = document.createElement('div');
     modal.className = 'modal-overlay';
     modal.innerHTML = `
@@ -486,7 +491,10 @@ function showSummaryModal(summaryText) {
             </div>
             
             <div class="modal-body summary-modal-body">
-                <pre class="summary-text">${summaryText}</pre>
+                <pre class="summary-text" id="summary-text">${generateTextSummary(meeting)}</pre>
+                <div class="copy-section">
+                    <button class="copy-summary-btn" onclick="copyTextSummary()">📋 텍스트 복사</button>
+                </div>
             </div>
             
             <div class="modal-footer summary-modal-footer">
@@ -497,6 +505,101 @@ function showSummaryModal(summaryText) {
     `;
     
     document.body.appendChild(modal);
+}
+
+// 텍스트 형태의 결과 정리 생성 (공유 용이)
+function generateTextSummary(meeting) {
+    if (!meeting) return '모임 데이터가 없습니다.';
+    
+    const rankings = calculateRankings(meeting);
+    const games = meeting.bracket.games || [];
+    const completedGames = games.filter(g => g.completed);
+    
+    let summary = `=== ${meeting.name} 결과 ===\n\n`;
+    summary += `📅 날짜: ${meeting.date}\n`;
+    summary += `👥 참가자: ${meeting.members.length}명\n`;
+    summary += `🎾 총 게임: ${games.length}개 (완료: ${completedGames.length}개)\n\n`;
+    
+    // 최종 순위
+    summary += `🏆 최종 순위:\n`;
+    rankings.forEach((player, index) => {
+        const totalGames = player.gamesWon + player.gamesLost;
+        const winRate = totalGames > 0 ? ((player.gamesWon / totalGames) * 100).toFixed(1) : '0.0';
+        summary += `${index + 1}위. ${player.name} - ${player.wins}승 (${player.gamesWon}-${player.gamesLost}, ${winRate}%)\n`;
+    });
+    
+    // 게임별 상세 결과
+    if (completedGames.length > 0) {
+        summary += `\n📊 경기 결과:\n`;
+        completedGames.forEach(game => {
+            const team1Names = game.team1?.map(m => m.name).join(', ') || '미정';
+            const team2Names = game.team2?.map(m => m.name).join(', ') || '미정';
+            const score1 = game.score1 || game.score?.team1 || 0;
+            const score2 = game.score2 || game.score?.team2 || 0;
+            
+            summary += `${game.time}타임 ${game.court}코트: `;
+            summary += `${score1}:${score2} `;
+            summary += `(${team1Names}) vs (${team2Names})\n`;
+        });
+    }
+    
+    // 진행중인 게임이 있다면 표시
+    const pendingGames = games.filter(g => !g.completed);
+    if (pendingGames.length > 0) {
+        summary += `\n⏳ 진행중/대기중 게임: ${pendingGames.length}개\n`;
+        pendingGames.forEach(game => {
+            const team1Names = game.team1?.map(m => m.name).join(', ') || '미정';
+            const team2Names = game.team2?.map(m => m.name).join(', ') || '미정';
+            const score1 = game.score1 || game.score?.team1 || 0;
+            const score2 = game.score2 || game.score?.team2 || 0;
+            
+            summary += `${game.time}타임 ${game.court}코트: `;
+            summary += `${score1}:${score2} `;
+            summary += `(${team1Names}) vs (${team2Names}) - ${game.status === 'in-progress' ? '진행중' : '대기중'}\n`;
+        });
+    }
+    
+    return summary;
+}
+
+// 텍스트 결과 복사하기
+async function copyTextSummary() {
+    const summaryElement = document.getElementById('summary-text');
+    const copyButton = document.querySelector('.copy-summary-btn');
+    
+    if (!summaryElement || !copyButton) return;
+    
+    const summaryText = summaryElement.textContent;
+    const originalText = copyButton.textContent;
+    
+    try {
+        copyButton.textContent = '복사 중...';
+        copyButton.disabled = true;
+        
+        await navigator.clipboard.writeText(summaryText);
+        
+        copyButton.textContent = '✅ 복사됨!';
+        copyButton.style.background = '#28a745';
+        
+        setTimeout(() => {
+            copyButton.textContent = originalText;
+            copyButton.disabled = false;
+            copyButton.style.background = '';
+        }, 2000);
+        
+    } catch (error) {
+        console.error('텍스트 복사 실패:', error);
+        copyButton.textContent = '❌ 복사 실패';
+        
+        // Clipboard API 미지원시 대체 방법
+        summaryElement.select();
+        alert('텍스트를 수동으로 선택해서 복사해주세요.');
+        
+        setTimeout(() => {
+            copyButton.textContent = originalText;
+            copyButton.disabled = false;
+        }, 2000);
+    }
 }
 
 // 요약 모달 닫기

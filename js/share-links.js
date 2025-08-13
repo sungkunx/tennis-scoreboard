@@ -37,9 +37,9 @@ async function generateServerShareLink(meeting) {
         // 30일 후 만료 설정
         const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000);
 
-        // Firebase에 링크 정보 저장
+        // Firebase에 링크 정보 저장 (접속 코드는 소문자로 정규화)
         const linkData = {
-            accessCode: appState.onlineMode.accessCode,
+            accessCode: appState.onlineMode.accessCode.toLowerCase(),
             meetingId: meeting.id,
             meetingName: meeting.name,
             createdAt: Date.now(),
@@ -208,13 +208,14 @@ async function handleShareLinkAccess(shareId) {
 // 공유 링크를 통한 직접 게임 연결
 async function directConnectToGame(accessCode, meetingId, meetingName) {
     try {
-        console.log('🎯 직접 게임 연결 시작:', { accessCode, meetingId, meetingName });
+        console.log('🎯 직접 게임 연결 시작:', { accessCode, normalizedAccessCode: accessCode.toLowerCase(), meetingId, meetingName });
         
-        // 1단계: 온라인 모드 활성화 (조용히)
+        // 1단계: 온라인 모드 활성화 (조용히, 접속 코드 정규화)
         showAutoConnectFeedback('온라인 모드 연결 중...', 'loading');
         
+        const normalizedAccessCode = accessCode.toLowerCase();
         appState.onlineMode.active = true;
-        appState.onlineMode.accessCode = accessCode;
+        appState.onlineMode.accessCode = normalizedAccessCode;
         appState.onlineMode.connected = true;
         appState.mode = 'online';
         
@@ -223,10 +224,10 @@ async function directConnectToGame(accessCode, meetingId, meetingName) {
         
         console.log('✅ 온라인 모드 활성화 완료');
         
-        // 2단계: Firebase에서 온라인 데이터 로드
+        // 2단계: Firebase에서 온라인 데이터 로드 (접속 코드 소문자로 정규화)
         showAutoConnectFeedback('게임 데이터 로드 중...', 'loading');
         
-        const snapshot = await database.ref('accessCodes/' + accessCode).once('value');
+        const snapshot = await database.ref('accessCodes/' + normalizedAccessCode).once('value');
         const data = snapshot.val();
         
         if (data && data.meetings) {

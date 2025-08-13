@@ -119,6 +119,9 @@ function confirmAccessCode() {
         return;
     }
     
+    // 접속 코드를 소문자로 정규화 (대소문자 구분 제거)
+    const normalizedCode = accessCode.toLowerCase();
+    
     // Firebase 초기화 시도
     if (!isFirebaseConnected()) {
         if (!initializeFirebase()) {
@@ -141,14 +144,14 @@ function confirmAccessCode() {
     // Firebase 연결 테스트 및 접속 코드 검증
     console.log('🔗 Firebase 연결 및 접속 코드 검증 시작...');
     
-    // 직접 접속 코드 공간에 접근하여 연결 테스트
-    database.ref('accessCodes/' + accessCode).once('value')
+    // 직접 접속 코드 공간에 접근하여 연결 테스트 (정규화된 코드 사용)
+    database.ref('accessCodes/' + normalizedCode).once('value')
         .then((snapshot) => {
-            console.log('✅ Firebase 연결 및 접속 코드 검증 완료:', accessCode);
+            console.log('✅ Firebase 연결 및 접속 코드 검증 완료:', normalizedCode, '(원본:', accessCode, ')');
             
-            // 온라인 모드 활성화
+            // 온라인 모드 활성화 (정규화된 코드 저장)
             appState.onlineMode.active = true;
-            appState.onlineMode.accessCode = accessCode;
+            appState.onlineMode.accessCode = normalizedCode;
             appState.onlineMode.connected = true;
             appState.mode = 'online';
             
@@ -163,7 +166,7 @@ function confirmAccessCode() {
             // 온라인 데이터 로드
             loadOnlineData();
             
-            alert(`온라인 모드가 활성화되었습니다.\n접속 코드: ${accessCode}`);
+            alert(`온라인 모드가 활성화되었습니다.\n접속 코드: ${normalizedCode}`);
         })
         .catch((error) => {
             console.error('❌ 온라인 모드 활성화 실패:', error);
