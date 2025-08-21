@@ -1,5 +1,83 @@
 // 대진표 화면 표시 관련 기능들
 
+// 대진표 공유 기능
+function shareBracket() {
+    const meeting = appState.tempMeeting || appState.currentMeeting;
+    if (!meeting || !meeting.bracket) {
+        alert('공유할 대진표가 없습니다.');
+        return;
+    }
+    
+    const bracketText = generateBracketText(meeting);
+    showBracketShareModal(bracketText);
+}
+
+// 대진표 텍스트 생성
+function generateBracketText(meeting) {
+    let text = `🎾 테니스 대진표 - ${meeting.name}\n`;
+    text += `📅 ${meeting.date}\n\n`;
+    
+    const groupedGames = groupGamesByTime(meeting.bracket.games);
+    
+    Object.keys(groupedGames).sort((a, b) => parseInt(a) - parseInt(b)).forEach(time => {
+        text += `${time}타임\n`;
+        
+        groupedGames[time].forEach(game => {
+            const team1Names = game.team1 ? game.team1.map(m => m.name).join(', ') : '대기';
+            const team2Names = game.team2 ? game.team2.map(m => m.name).join(', ') : '대기';
+            text += `🏟️ ${game.court}번코트: ${team1Names} vs ${team2Names}\n`;
+        });
+        
+        text += '\n';
+    });
+    
+    return text.trim();
+}
+
+// 대진표 공유 모달 표시
+function showBracketShareModal(bracketText) {
+    const modal = document.getElementById('bracket-share-modal');
+    const textArea = document.getElementById('bracket-text');
+    
+    if (modal && textArea) {
+        textArea.value = bracketText;
+        modal.classList.remove('hidden');
+        modal.style.display = 'flex';
+    }
+}
+
+// 대진표 공유 모달 닫기
+function closeBracketShareModal() {
+    const modal = document.getElementById('bracket-share-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+    }
+}
+
+// 대진표 텍스트 복사
+function copyBracketText() {
+    const textArea = document.getElementById('bracket-text');
+    if (textArea) {
+        textArea.select();
+        textArea.setSelectionRange(0, 99999);
+        
+        navigator.clipboard.writeText(textArea.value).then(() => {
+            const copyBtn = document.querySelector('#bracket-share-modal .copy-btn');
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '복사됨!';
+            copyBtn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                copyBtn.textContent = originalText;
+                copyBtn.style.background = '';
+            }, 2000);
+        }).catch(() => {
+            alert('대진표를 수동으로 복사해주세요: ' + textArea.value);
+        });
+    }
+}
+
 // 대진표 표시
 function displayBracket() {
     const meeting = appState.tempMeeting || appState.currentMeeting;
@@ -98,7 +176,6 @@ function renderGameCard(game) {
             </div>
             
             <div class="game-actions">
-                <div class="edit-instruction">플레이어를 클릭하여 교체하세요</div>
             </div>
         </div>
     `;
@@ -139,10 +216,9 @@ function renderMemberCard(member, gameId, teamNumber) {
             <div class="member-card" onclick="editPlayer('${gameId}', ${teamNumber}, '${member.name}')">
                 <div class="member-name">${member.name}</div>
                 <div class="member-info">
-                    <span class="gender">${member.gender}</span>
+                    <span class="gender ${member.gender === '남' ? 'male' : 'female'}">${member.gender}</span>
                     <span class="skill">실력${member.skill}</span>
                     <span class="game-count">${gamesCount}게임</span>
-                    <span class="game-diff ${diffFromAverage > 0 ? 'over-average' : 'under-average'}">평균대비${diffText}</span>
                 </div>
             </div>
         `;

@@ -25,8 +25,8 @@ function saveStepProgress() {
         console.log('➕ 새로운 모임 추가:', appState.tempMeeting.name);
     }
     
-    // 저장
-    saveMeetings();
+    // 저장 (자동 백업 포함)
+    saveMeetings(true);
     
     // 모임 목록 새로고침
     loadMeetings();
@@ -36,8 +36,8 @@ function saveStepProgress() {
 function finalizeSetupMeeting() {
     if (!appState.tempMeeting) return;
     
-    // status를 'active'로 변경
-    appState.tempMeeting.status = 'active';
+    // status를 'in-progress'로 변경
+    appState.tempMeeting.status = 'in-progress';
     appState.tempMeeting.step = 'game-started';
     
     // currentMeeting으로 설정
@@ -57,8 +57,8 @@ function finalizeSetupMeeting() {
     // tempMeeting 초기화
     appState.tempMeeting = null;
     
-    // 저장
-    saveMeetings();
+    // 저장 (자동 백업 포함)
+    saveMeetings(true);
 }
 
 // 세팅 중인 모임 불러오기

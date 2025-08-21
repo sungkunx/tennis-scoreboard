@@ -268,7 +268,7 @@ function showPlayerEditModal(game, teamNumber, memberName) {
                                     <div class="member-name">${member.name}</div>
                                     <div class="member-details">
                                         ${member.gender} | 실력${member.skill}<br>
-                                        ${gamesCount}게임 (평균대비${diffText})
+                                        ${gamesCount}게임
                                         ${isDisabled ? '<br><span class="disabled-reason">' + 
                                             (member.name === memberName ? '현재 선수' : '사용중') + '</span>' : ''}
                                     </div>

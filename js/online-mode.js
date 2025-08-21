@@ -155,6 +155,11 @@ function confirmAccessCode() {
             appState.onlineMode.connected = true;
             appState.mode = 'online';
             
+            // 온라인 모드 상태 저장
+            if (typeof saveOnlineModeState === 'function') {
+                saveOnlineModeState();
+            }
+            
             closeAccessCodeModal();
             
             // UI 업데이트
@@ -278,6 +283,11 @@ function deactivateOnlineMode() {
     appState.onlineMode.accessCode = null;
     appState.onlineMode.connected = false;
     appState.mode = 'offline';
+    
+    // 온라인 모드 상태 삭제
+    if (typeof clearOnlineModeState === 'function') {
+        clearOnlineModeState();
+    }
     
     // 상태 바 업데이트 - 오프라인 모드
     updateStatusBar('offline');

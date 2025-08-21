@@ -10,12 +10,147 @@ let appState = {
     }
 };
 
+// 온라인 모드 상태 저장
+function saveOnlineModeState() {
+    if (appState.onlineMode.active && appState.onlineMode.accessCode) {
+        const onlineState = {
+            active: appState.onlineMode.active,
+            accessCode: appState.onlineMode.accessCode,
+            timestamp: Date.now()
+        };
+        localStorage.setItem('tennis-online-mode', JSON.stringify(onlineState));
+        console.log('💾 온라인 모드 상태 저장:', onlineState);
+    }
+}
+
+// 온라인 모드 상태 복원
+function restoreOnlineModeState() {
+    try {
+        const savedState = localStorage.getItem('tennis-online-mode');
+        if (savedState) {
+            const state = JSON.parse(savedState);
+            
+            // 24시간 이내의 데이터만 복원
+            const hoursPassed = (Date.now() - state.timestamp) / (1000 * 60 * 60);
+            if (hoursPassed < 24 && state.active && state.accessCode) {
+                console.log('🔄 온라인 모드 상태 복원:', state);
+                
+                // 앱 상태 복원
+                appState.onlineMode.active = state.active;
+                appState.onlineMode.accessCode = state.accessCode;
+                appState.mode = 'online';
+                
+                // UI 복원
+                updateOnlineModeUIOnly();
+                
+                // Firebase 초기화 및 온라인 데이터 로드 (지연시간 추가)
+                console.log('🔄 온라인 데이터 로드 시작...');
+                setTimeout(() => {
+                    if (!isFirebaseConnected()) {
+                        if (initializeFirebase()) {
+                            console.log('🔥 Firebase 초기화 성공, 데이터 로드 중...');
+                            setTimeout(() => {
+                                if (typeof loadOnlineData === 'function') {
+                                    loadOnlineData();
+                                } else {
+                                    loadOnlineDataDirectly(state.accessCode);
+                                }
+                            }, 100);
+                        } else {
+                            console.error('❌ Firebase 초기화 실패');
+                            loadOnlineDataDirectly(state.accessCode);
+                        }
+                    } else {
+                        console.log('🔥 Firebase 이미 연결됨, 데이터 로드 중...');
+                        if (typeof loadOnlineData === 'function') {
+                            loadOnlineData();
+                        } else {
+                            loadOnlineDataDirectly(state.accessCode);
+                        }
+                    }
+                }, 200); // 0.2초 지연
+                
+                console.log('✅ 온라인 모드 자동 복원 완료');
+                return true;
+            } else {
+                // 만료된 데이터 삭제
+                localStorage.removeItem('tennis-online-mode');
+                console.log('🗑️ 만료된 온라인 모드 상태 삭제');
+            }
+        }
+    } catch (error) {
+        console.error('온라인 모드 복원 중 오류:', error);
+        localStorage.removeItem('tennis-online-mode');
+    }
+    return false;
+}
+
+// 온라인 모드 상태 삭제
+function clearOnlineModeState() {
+    localStorage.removeItem('tennis-online-mode');
+    console.log('🗑️ 온라인 모드 상태 삭제');
+}
+
+// 온라인 모드 UI만 업데이트 (데이터 로드 없이)
+function updateOnlineModeUIOnly() {
+    // 모드 버튼 업데이트
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // 온라인 버튼 활성화
+    const onlineBtn = document.querySelector('.mode-btn[onclick="setMode(\'online\')"]');
+    if (onlineBtn) {
+        onlineBtn.classList.add('active');
+    }
+    
+    // 온라인 코드 입력 섹션 표시 및 접속 코드 채우기
+    const onlineCode = document.getElementById('online-code');
+    if (onlineCode) {
+        onlineCode.classList.add('show');
+        
+        // 저장된 접속 코드를 입력칸에 미리 채우기
+        const codeInput = document.getElementById('code-input');
+        if (codeInput && appState.onlineMode.accessCode) {
+            codeInput.value = appState.onlineMode.accessCode;
+        }
+    }
+    
+    // 상태 바 업데이트
+    updateStatusBar('online', appState.onlineMode.accessCode);
+}
+
+// 상태 바 업데이트 함수
+function updateStatusBar(mode, accessCode = null) {
+    const statusBar = document.getElementById('status-bar');
+    const statusText = document.querySelector('.status-text');
+    const statusCode = document.getElementById('status-code');
+    
+    if (!statusBar || !statusText || !statusCode) return;
+    
+    if (mode === 'online') {
+        statusBar.classList.add('online');
+        statusText.textContent = '온라인';
+        statusCode.textContent = accessCode ? `코드: ${accessCode}` : '';
+    } else {
+        statusBar.classList.remove('online');
+        statusText.textContent = '오프라인';
+        statusCode.textContent = '';
+    }
+}
+
 // 앱 초기화 함수 (모든 스크립트 로드 후 호출)
 function initializeApp() {
     // Hash에서 공유 링크 확인 (우선순위 높음)
     if (typeof checkForShareLink === 'function' && !checkForShareLink()) {
         // 공유 링크가 없으면 URL 파라미터에서 접속 코드 확인
         checkForSharedAccessCode();
+    }
+    
+    // 저장된 온라인 모드 상태 복원 (공유 링크가 없을 때만)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (!urlParams.get('code') && !urlParams.get('meeting')) {
+        restoreOnlineModeState();
     }
     
     loadMeetings();
@@ -35,6 +170,13 @@ function initializeApp() {
                     generateManualGamesGrid();
                 }
             }
+        }
+    });
+    
+    // 접속 코드 입력창에서 Enter 키 이벤트 추가
+    document.addEventListener('keypress', function(e) {
+        if (e.target.id === 'code-input' && e.key === 'Enter') {
+            verifyCode();
         }
     });
     
@@ -160,12 +302,14 @@ function setMode(mode) {
         if (appState.onlineMode && appState.onlineMode.active) {
             const currentCode = appState.onlineMode.accessCode || '알 수 없음';
             if (confirm(`현재 접속코드: ${currentCode}\n\n다른 접속코드로 변경하시겠습니까?`)) {
-                showOnlineCodeChangeModal();
+                // 온라인 모드 비활성화 후 다시 활성화
+                deactivateOnlineMode();
+                activateOnlineInlineMode();
             }
             return;
         } else {
-            // 온라인 모드가 비활성화 상태면 활성화 프로세스 시작
-            activateOnlineMode();
+            // 온라인 모드가 비활성화 상태면 인라인 방식으로 활성화
+            activateOnlineInlineMode();
             return;
         }
     } else {
@@ -200,6 +344,12 @@ function switchToOfflineMode() {
     
     const onlineCode = document.getElementById('online-code');
     onlineCode.classList.remove('show');
+    
+    // 접속 코드 입력칸 비우기
+    const codeInput = document.getElementById('code-input');
+    if (codeInput) {
+        codeInput.value = '';
+    }
     
     // 온라인 데이터를 오프라인 데이터로 교체
     console.log('🔄 온라인에서 오프라인 모드로 전환: 로컬 데이터 로드');
@@ -337,6 +487,9 @@ function verifyCodeAndConnect(code, isAutoConnect = false) {
                 appState.onlineMode.connected = true;
                 appState.mode = 'online';
                 
+                // 온라인 모드 상태 저장 (localStorage)
+                saveOnlineModeState();
+                
                 // UI 업데이트
                 updateOnlineModeUI();
                 
@@ -406,6 +559,20 @@ function updateOnlineModeUI() {
     const activeBtn = document.querySelector(`.mode-btn[onclick="setMode('${activeMode}')"]`);
     if (activeBtn) {
         activeBtn.classList.add('active');
+    }
+    
+    // 온라인 모드 활성화시 코드 입력창 표시 및 접속 코드 채우기
+    if (appState.onlineMode.active) {
+        const onlineCode = document.getElementById('online-code');
+        if (onlineCode) {
+            onlineCode.classList.add('show');
+            
+            // 접속 코드 입력칸에 현재 접속 코드 표시
+            const codeInput = document.getElementById('code-input');
+            if (codeInput && appState.onlineMode.accessCode) {
+                codeInput.value = appState.onlineMode.accessCode;
+            }
+        }
     }
 }
 
@@ -508,4 +675,96 @@ function selectBracketType(type) {
     
     // 기존 핸들러 호출
     handleBracketTypeChange();
+}
+
+// 온라인 모드 인라인 방식으로 활성화
+function activateOnlineInlineMode() {
+    appState.mode = 'online';
+    
+    // 모드 버튼 상태 업데이트
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    const onlineBtn = document.querySelector('.mode-btn[onclick="setMode(\'online\')"]');
+    if (onlineBtn) {
+        onlineBtn.classList.add('active');
+    }
+    
+    // 온라인 코드 입력 섹션 표시
+    const onlineCode = document.getElementById('online-code');
+    if (onlineCode) {
+        onlineCode.classList.add('show');
+        
+        // 저장된 접속 코드가 있으면 입력칸에 미리 채우기
+        const codeInput = document.getElementById('code-input');
+        if (codeInput) {
+            // localStorage에서 저장된 온라인 상태 확인
+            const savedState = localStorage.getItem('tennis-online-mode');
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    const hoursPassed = (Date.now() - state.timestamp) / (1000 * 60 * 60);
+                    if (hoursPassed < 24 && state.accessCode) {
+                        codeInput.value = state.accessCode;
+                        console.log('💾 저장된 접속 코드를 입력칸에 복원:', state.accessCode);
+                    }
+                } catch (error) {
+                    console.error('저장된 온라인 상태 파싱 오류:', error);
+                }
+            }
+            
+            // 입력 필드에 포커스
+            setTimeout(() => {
+                codeInput.focus();
+                codeInput.setSelectionRange(codeInput.value.length, codeInput.value.length);
+            }, 300);
+        }
+    }
+    
+    // 상태 바 업데이트 (온라인 모드이지만 아직 연결 안됨)
+    updateStatusBar('offline'); // 연결되기 전까지는 오프라인으로 표시
+}
+
+// 온라인 데이터 직접 로드 (백업 방법)
+function loadOnlineDataDirectly(accessCode) {
+    if (!accessCode) {
+        console.error('❌ 접속 코드가 없어 온라인 데이터 로드 불가');
+        return;
+    }
+    
+    console.log('🔄 온라인 데이터 직접 로드 시작:', accessCode);
+    
+    // Firebase에서 직접 데이터 로드
+    if (typeof database !== 'undefined') {
+        database.ref('accessCodes/' + accessCode).once('value')
+            .then((snapshot) => {
+                console.log('📦 Firebase 응답 받음 (직접 로드)');
+                const data = snapshot.val();
+                
+                if (data && data.meetings) {
+                    console.log('☁️ 온라인 데이터 발견 (직접 로드):', data.meetings.length + '개 모임');
+                    appState.meetings = data.meetings;
+                    loadMeetings();
+                    console.log('✅ 온라인 데이터 직접 로드 완료');
+                } else {
+                    console.log('❌ 저장된 온라인 데이터 없음 (직접 로드)');
+                    appState.meetings = [];
+                    loadMeetings();
+                }
+            })
+            .catch((error) => {
+                console.error('❌ 온라인 데이터 직접 로드 실패:', error);
+                // 실패시 로컬 데이터라도 로드
+                const offlineData = localStorage.getItem('tennis-meetings');
+                if (offlineData) {
+                    appState.meetings = JSON.parse(offlineData);
+                } else {
+                    appState.meetings = [];
+                }
+                loadMeetings();
+            });
+    } else {
+        console.error('❌ Firebase database 객체를 찾을 수 없음');
+    }
 }

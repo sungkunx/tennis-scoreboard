@@ -325,8 +325,8 @@ function updateGameScore(gameId, teamNumber, score) {
     // 게임 상태 업데이트
     updateGameProgress(meeting);
     
-    // 자동 저장
-    saveMeetings();
+    // 자동 저장 (중요한 스코어 변경시 백업)
+    saveMeetings(true);
     
     // 게임 카드 UI 새로고침
     refreshGameScheduleDisplay(meeting);

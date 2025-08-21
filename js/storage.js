@@ -1,7 +1,7 @@
 // localStorage 관련 기능들
 
 // 모임 저장
-function saveMeetings() {
+function saveMeetings(createAutoBackup = false) {
     if (appState.mode === 'offline') {
         localStorage.setItem('tennis-meetings', JSON.stringify(appState.meetings));
     } else if (appState.onlineMode && appState.onlineMode.active) {
@@ -15,6 +15,20 @@ function saveMeetings() {
                 // 실패 시 로컬에라도 저장
                 localStorage.setItem('tennis-meetings', JSON.stringify(appState.meetings));
             });
+    }
+    
+    // 자동 백업 생성 (선택적)
+    if (createAutoBackup && appState.meetings.length > 0) {
+        // 너무 자주 백업되는 것을 방지하기 위해 디바운스 처리
+        clearTimeout(window.autoBackupTimeout);
+        window.autoBackupTimeout = setTimeout(() => {
+            if (typeof createBackup === 'function') {
+                createBackup(`자동 백업 ${new Date().toLocaleString('ko-KR')}`)
+                    .catch(error => {
+                        console.error('자동 백업 실패:', error);
+                    });
+            }
+        }, 2000); // 2초 후 백업
     }
 }
 
