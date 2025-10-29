@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis ScoreBoard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- 상태 표시 바 -->
+    <div class="status-bar" id="status-bar">
+        <div class="status-info">
+            <span class="status-dot"></span>
+            <span class="status-text">오프라인</span>
+        </div>
+        <div class="status-code" id="status-code"></div>
+        <div class="status-warning" id="status-warning" style="display: none;">
+            새로고침과 뒤로가기를 하면 저장되지 않은 데이터가 손실될 수 있습니다
+        </div>
+    </div>
+    
+    <div class="container">
+        <!-- 메인 화면 -->
+        <div id="main-screen">
+            <div class="hero-section">
+                <div class="logo-container">
+                    <div class="app-logo">
+                        <span class="tennis-icon">🎾</span>
+                        <span class="app-name">Tennis ScoreBoard</span>
+                    </div>
+                    <p class="hero-subtitle">당신의 테니스 모임을 완벽하게</p>
+                </div>
+            </div>
+
+            <div class="main-content">
+                <div class="action-cards">
+                    <div class="action-card primary" onclick="showStep1()">
+                        <div class="card-icon">➕</div>
+                        <div class="card-content">
+                            <h3>새 모임 시작</h3>
+                            <p>새로운 테니스 모임을 만들어 보세요</p>
+                        </div>
+                        <div class="card-arrow">→</div>
+                    </div>
+                    
+                    <div class="action-card secondary" onclick="showExistingMembersModal()">
+                        <div class="card-icon">👥</div>
+                        <div class="card-content">
+                            <h3>기존 멤버로 시작</h3>
+                            <p>저장된 멤버 목록으로 빠르게 시작</p>
+                        </div>
+                        <div class="card-arrow">→</div>
+                    </div>
+                </div>
+
+                <div class="meeting-section">
+                    <div class="section-header">
+                        <h2>내 모임</h2>
+                        <div class="search-container">
+                            <input type="text" class="search-input" id="meeting-search" placeholder="모임 검색..." onkeyup="searchMeetings()">
+                            <button class="clear-search-btn" onclick="clearSearch()">✕</button>
+                        </div>
+                    </div>
+                    <div class="meeting-cards" id="meeting-list">
+                        <div class="empty-state">
+                            <div class="empty-icon">📋</div>
+                            <h3>아직 모임이 없습니다</h3>
+                            <p>새 모임을 만들어서 시작해보세요!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="settings-card">
+                    <div class="settings-header">
+                        <h3>연결 모드</h3>
+                        <p>데이터 저장 방식을 선택하세요</p>
+                    </div>
+                    <div class="mode-toggle">
+                        <div class="mode-btn active" onclick="setMode('offline')">
+                            <span class="mode-icon">📱</span>
+                            <span class="mode-text">오프라인</span>
+                        </div>
+                        <div class="mode-btn" onclick="setMode('online')">
+                            <span class="mode-icon">☁️</span>
+                            <span class="mode-text">온라인</span>
+                        </div>
+                    </div>
+                    <div class="online-code" id="online-code">
+                        <div class="online-code-label">접속 코드를 입력하세요:</div>
+                        <input type="text" class="code-input" id="code-input" placeholder="접속 코드 입력">
+                        <button class="code-submit" onclick="verifyCode()">연결</button>
+                    </div>
+                </div>
+                
+                <div class="backup-section">
+                    <div class="backup-card">
+                        <div class="backup-header">
+                            <h3>데이터 백업</h3>
+                            <p>소중한 모임 데이터를 안전하게 보관하세요</p>
+                        </div>
+                        <div class="backup-actions">
+                            <button class="backup-btn" onclick="showBackupModal()">
+                                <span class="backup-icon">📦</span>
+                                <span>백업 관리</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: 모임이름/멤버 입력 -->
+        <div id="step1-screen" class="hidden">
+            <div class="header">
+                <div class="header-with-buttons">
+                    <button class="header-btn home-btn" onclick="confirmGoHome()">🏠</button>
+                    <div class="header-title">
+                        <h1>새 모임 추가하기 (1/3)</h1>
+                        <p class="header-subtitle">모임이름/멤버입력</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <label class="form-label">모임 이름</label>
+                <input type="text" id="meeting-name" class="form-input" placeholder="자동 생성됩니다">
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">멤버 정보 (최소 4명, 최대 16명)</label>
+                <div id="member-list"></div>
+                <button class="add-member-btn" onclick="addMember()">+ 멤버 추가</button>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="showMainScreen()">취소</button>
+                <button class="btn-primary" onclick="completeStep1()">다음 단계</button>
+            </div>
+        </div>
+
+        <!-- Step 2: 게임 설정 -->
+        <div id="step2-screen" class="hidden">
+            <div class="header">
+                <div class="header-with-buttons">
+                    <button class="header-btn home-btn" onclick="confirmGoHome()">🏠</button>
+                    <div class="header-title">
+                        <h1>새 모임 추가하기 (2/3)</h1>
+                        <p class="header-subtitle">게임설정</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="current-meeting">
+                <div class="meeting-summary" id="meeting-summary"></div>
+                <button class="edit-btn" onclick="editMeeting()">수정</button>
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">대진표 구축 방식</label>
+                <div class="bracket-type-cards">
+                    <div class="bracket-card active" data-bracket-type="random">
+                        <input type="radio" name="bracket-type" value="random" checked onchange="handleBracketTypeChange()" style="display: none;">
+                        <div class="card-icon">🎲</div>
+                        <div class="card-title">자동 대진표 생성</div>
+                        <div class="card-description">시스템이 자동으로 균형잡힌 대진표를 생성합니다</div>
+                    </div>
+                    <div class="bracket-card" data-bracket-type="kdk">
+                        <input type="radio" name="bracket-type" value="kdk" onchange="handleBracketTypeChange()" style="display: none;">
+                        <div class="card-icon">🔢</div>
+                        <div class="card-title">KDK 방식</div>
+                        <div class="card-description">5-10명 전용, 각자 4경기씩 진행하는 방식</div>
+                    </div>
+                    <div class="bracket-card" data-bracket-type="manual">
+                        <input type="radio" name="bracket-type" value="manual" onchange="handleBracketTypeChange()" style="display: none;">
+                        <div class="card-icon">✏️</div>
+                        <div class="card-title">셀프 대진표 생성</div>
+                        <div class="card-description">각 게임의 복식 속성을 직접 선택할 수 있습니다</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section" id="condition-settings">
+                <label class="form-label">조건 설정</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-option" id="gender-separate-option">
+                        <input type="checkbox" id="gender-separate" onchange="updateGenderWarning()">
+                        <span>성별 매칭 (남성끼리, 여성끼리 매칭)</span>
+                    </label>
+                    <div class="gender-warning" id="gender-warning" style="display: none;">
+                        <p class="warning-text">⚠️ 한가지 성별이 4명 이하인 경우에는 정상적으로 매칭되지 않을 수 있습니다.</p>
+                    </div>
+                    <label class="checkbox-option" id="skill-balance-option">
+                        <input type="checkbox" id="skill-balance">
+                        <span>실력 균형 (비슷한 실력끼리 매칭)</span>
+                    </label>
+                </div>
+                <p class="info-text" id="condition-info">* 다음 단계에서 대진표가 나오면 수정이 가능합니다</p>
+            </div>
+
+            <div class="form-section" id="game-settings">
+                <label class="form-label">게임 설정</label>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>코트 수</label>
+                        <input type="number" id="court-count" min="1" max="8" value="2" onchange="updateGameCountInfo()">
+                    </div>
+                    <div class="input-group" id="time-count-group">
+                        <label>타임 수</label>
+                        <input type="number" id="time-count" min="1" max="20" value="4" onchange="updateGameCountInfo()">
+                    </div>
+                </div>
+                <p class="info-text" id="game-count-info">총 8개의 게임이 생성됩니다</p>
+            </div>
+
+            <!-- 셀프 대진표 생성 섹션 -->
+            <div class="form-section" id="manual-bracket-settings" style="display: none;">
+                <label class="form-label">게임별 복식 속성 설정</label>
+                <div class="manual-bracket-controls">
+                    <button class="btn-auto-fill" onclick="autoFillGameTypes()">현재 멤버 구성으로 자동 입력</button>
+                    <div class="game-type-counter" id="game-type-counter">
+                        <span class="counter-item">남복: <span id="male-count">0</span>개</span>
+                        <span class="counter-item">여복: <span id="female-count">0</span>개</span>
+                        <span class="counter-item">혼복: <span id="mixed-count">0</span>개</span>
+                    </div>
+                </div>
+                <p class="info-text">각 게임의 복식 속성(남복/여복/혼복)을 선택하세요</p>
+                <div id="manual-games-grid" class="manual-games-grid">
+                    <!-- 동적으로 생성될 게임 그리드 -->
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="showMainScreen()">취소</button>
+                <button class="btn-primary" onclick="generateBracket()">대진표 보기</button>
+            </div>
+        </div>
+
+        <!-- 대진표 화면 -->
+        <div id="bracket-screen" class="hidden">
+            <div class="header">
+                <div class="header-with-buttons">
+                    <button class="header-btn home-btn" onclick="confirmGoHome()">🏠</button>
+                    <div class="header-title">
+                        <h1>새 모임 추가하기 (3/3)</h1>
+                        <p class="header-subtitle">대진표 보기</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bracket-summary" id="bracket-summary"></div>
+
+            <div id="bracket-container"></div>
+            
+            <div id="balance-info"></div>
+
+            <div class="form-section">
+                <div class="edit-buttons-container">
+                    <button class="edit-btn-half" onclick="editMembersFromBracket()">
+                        <span class="edit-btn-icon">👥</span>
+                        <span class="edit-btn-text">멤버 수정</span>
+                    </button>
+                    <button class="edit-btn-half" onclick="editSettingsFromBracket()">
+                        <span class="edit-btn-icon">⚙️</span>
+                        <span class="edit-btn-text">게임 설정 수정</span>
+                    </button>
+                </div>
+                <div class="edit-buttons-container" style="margin-top: 10px;">
+                    <button class="primary-btn" onclick="refreshBracket()" style="width: 100%;">
+                        <span style="font-size: 1.2em;">🔄</span>
+                        대진표 다시 생성
+                    </button>
+                </div>
+            </div>
+
+            <div class="share-bracket-section">
+                <button class="share-bracket-btn" onclick="shareBracket()">
+                    <span class="share-icon">📤</span>
+                    <span>현재 대진표 공유</span>
+                </button>
+            </div>
+
+            <div class="button-group">
+                <button class="btn-secondary" onclick="regenerateBracket()">대진표 재생성</button>
+                <button class="btn-primary" onclick="proceedToGame()">진행하기</button>
+            </div>
+        </div>
+
+        <!-- 게임 스코어 화면 -->
+        <div id="game-screen" class="hidden">
+            <div class="header">
+                <div class="header-with-buttons">
+                    <button class="header-btn home-btn" onclick="showMainScreen()">🏠</button>
+                    <div class="header-title">
+                        <h1>게임 스코어</h1>
+                        <p class="header-subtitle" id="game-meeting-name">모임명</p>
+                    </div>
+                    <button class="refresh-btn-text" onclick="refreshGameData()" id="refresh-btn">새로고침</button>
+                </div>
+            </div>
+            
+            <!-- 순위표 -->
+            <div class="form-section">
+                <label class="form-label">순위표</label>
+                <div id="ranking-container"></div>
+            </div>
+            
+            <!-- 진행률 -->
+            <div id="game-progress"></div>
+            
+            <!-- 게임 스케줄 -->
+            <div class="form-section">
+                <label class="form-label">경기 스케줄</label>
+                <div id="schedule-container"></div>
+            </div>
+            
+            <!-- 공유 링크 섹션 -->
+            <div class="share-link-section" id="share-link-section" style="display: none;">
+                <div class="share-link-header">
+                    <h3>🔗 이 게임 공유하기</h3>
+                    <p>아래 링크를 복사해서 다른 사람들과 공유하세요</p>
+                </div>
+                <div class="share-link-container-game">
+                    <input type="text" id="game-share-url" class="share-url-input" readonly placeholder="링크를 생성하는 중...">
+                    <button class="copy-share-btn" id="copy-share-btn" onclick="copyGameShareUrl()">📋 복사</button>
+                </div>
+                <div class="share-link-info">
+                    <small>💡 이 링크로 접속하면 자동으로 게임 화면으로 이동합니다</small>
+                </div>
+            </div>
+            
+            <!-- 하단 버튼들 -->
+            <div class="game-actions">
+                <button class="save-btn" onclick="saveCurrentState()">현재 상태 저장</button>
+                <button class="refresh-btn-game" onclick="refreshGameData()">새로고침</button>
+            </div>
+            
+            <div class="game-actions-bottom">
+                <button class="summary-btn-large" onclick="showGameSummary()">결과 정리 보기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 대진표 공유 모달 -->
+    <div id="bracket-share-modal" class="modal hidden">
+        <div class="modal-content bracket-share-modal-content">
+            <div class="modal-header">
+                <h3>대진표 공유하기</h3>
+                <button class="close-btn" onclick="closeBracketShareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="bracket-share-info">
+                    <p class="bracket-share-description">아래 대진표를 복사해서 공유하세요.</p>
+                    <div class="bracket-text-container">
+                        <textarea id="bracket-text" class="bracket-text-area" readonly></textarea>
+                        <button class="copy-btn" onclick="copyBracketText()">복사</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <!-- JavaScript 파일들 로드 -->
+    <!-- 핵심 초기화 스크립트들 (의존성 순서대로) -->
+    <script src="js/utils.js"></script>
+    <script src="js/firebase-config.js"></script>
+    
+    <!-- appState 정의 (다른 파일들이 의존) -->
+    <script src="js/app.js"></script>
+    
+    <!-- appState에 의존하는 파일들 -->
+    <script src="js/share-links.js"></script>
+    <script src="js/backup.js"></script>
+    <script src="js/online-mode.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/meeting.js"></script>
+    <script src="js/screens.js"></script>
+    <script src="js/bracket.js"></script>
+    <script src="js/kdk.js"></script>
+    <script src="js/bracketDisplay.js"></script>
+    <script src="js/memberEdit.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/existing-members.js"></script>
+    <script src="js/stepSaving.js"></script>
+    <script src="js/manualBracket.js"></script>
+    <script src="js/test-bracket.js"></script>
+
+    <!-- 모든 스크립트 로드 후 앱 초기화 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📱 DOM 로드 완료, 앱 초기화 시작...');
+            initializeApp();
+            console.log('✅ 앱 초기화 완료');
+        });
+    </script>
+</body>
+</html>

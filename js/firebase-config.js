@@ -1,0 +1,54 @@
+// Firebase 설정 및 초기화
+
+const firebaseConfig = {
+    apiKey: "AIzaSyAycBoMJTIldJt7W3XLRC9T63NtKqAfjz8",
+    authDomain: "tennis-scoreboard-27f7d.firebaseapp.com",
+    databaseURL: "https://tennis-scoreboard-27f7d-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "tennis-scoreboard-27f7d",
+    storageBucket: "tennis-scoreboard-27f7d.firebasestorage.app",
+    messagingSenderId: "87562219369",
+    appId: "1:87562219369:web:c54f36fe8566a96b2797f8"
+};
+
+// Firebase 초기화
+let database = null;
+
+// Firebase 초기화 함수
+function initializeFirebase() {
+    try {
+        if (typeof firebase !== 'undefined') {
+            // 이미 초기화된 앱이 있는지 체크
+            if (firebase.apps.length === 0) {
+                console.log('🔄 Firebase 초기화 시작...');
+                firebase.initializeApp(firebaseConfig);
+                console.log('✅ Firebase 앱 초기화 완료');
+            } else {
+                console.log('✅ Firebase 앱이 이미 초기화됨');
+            }
+            
+            // database 참조 설정 (항상 실행)
+            database = firebase.database();
+            
+            console.log('✅ Firebase 초기화 완료');
+            console.log('🔗 Firebase 설정:', {
+                projectId: firebaseConfig.projectId,
+                databaseURL: firebaseConfig.databaseURL,
+                authDomain: firebaseConfig.authDomain
+            });
+            console.log('🌐 Firebase 앱 인스턴스:', firebase.app());
+            return true;
+        } else {
+            console.error('❌ Firebase SDK가 로드되지 않았습니다.');
+            return false;
+        }
+    } catch (error) {
+        console.error('❌ Firebase 초기화 실패:', error);
+        console.error('❌ 에러 상세:', error.message, error.code);
+        return false;
+    }
+}
+
+// Firebase 연결 상태 확인
+function isFirebaseConnected() {
+    return database !== null && typeof firebase !== 'undefined';
+}

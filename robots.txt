@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# 테니스 스코어보드 웹앱
+Sitemap: /sitemap.xml

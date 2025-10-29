@@ -1,0 +1,19 @@
+{
+  "name": "tennis-scoreboard",
+  "version": "1.0.0",
+  "description": "복식 테니스 대진표 생성 및 스코어 관리 웹앱",
+  "main": "index.html",
+  "scripts": {
+    "start": "python3 -m http.server 3000",
+    "deploy": "netlify deploy --prod --dir .",
+    "build": "echo 'No build step required for static site'"
+  },
+  "keywords": ["tennis", "scoreboard", "tournament", "doubles"],
+  "author": "",
+  "license": "MIT",
+  "homepage": ".",
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
