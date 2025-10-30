@@ -435,10 +435,20 @@ function createRandomBracket(members, courtCount, timeCount, genderSeparate, ski
                 while (!teams && attempts < maxAttempts) {
                     attempts++;
 
+                    // 목표 게임 수 체크
+                    const totalTargetGames = gameTypeDistribution ?
+                        (gameTypeDistribution.남복 + gameTypeDistribution.여복 + gameTypeDistribution.혼복) : 0;
+                    const targetReached = gameTypeDistribution && games.length >= totalTargetGames;
+
                     // 비율 기반 팀 선택 또는 기존 방식
-                    teams = genderSeparate && gameTypeDistribution ?
+                    // 목표 도달 시에는 게임 타입 제약 없이 생성
+                    teams = (genderSeparate && gameTypeDistribution && !targetReached) ?
                         selectTeamsWithRatioDistribution(availableMembers, memberGameCount, skillBalance, gameTypeDistribution, games.length) :
                         selectOptimalTeamsWithDiversityCheck(availableMembers, memberGameCount, genderSeparate, skillBalance);
+
+                    if (targetReached && attempts === 1) {
+                        console.log(`ℹ️ ${gameId}: 목표 게임 수 도달, 제약 없이 생성`);
+                    }
 
                     // 검증
                     if (teams && validateTeamCombination(teams.team1, teams.team2) && isNewCombination(teams.team1, teams.team2)) {
