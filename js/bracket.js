@@ -429,7 +429,7 @@ function createRandomBracket(members, courtCount, timeCount, genderSeparate, ski
             if (availableMembers.length >= 4) {
                 let teams = null;
                 let attempts = 0;
-                const maxAttempts = 5;
+                const maxAttempts = 3;
 
                 // 여러 번 시도
                 while (!teams && attempts < maxAttempts) {
@@ -447,16 +447,6 @@ function createRandomBracket(members, courtCount, timeCount, genderSeparate, ski
                     } else {
                         // 실패 시 다시 시도 (다른 조합)
                         teams = null;
-
-                        // 2번째 시도부터는 게임 타입 제약 없이 시도
-                        if (attempts >= 2 && genderSeparate) {
-                            teams = selectOptimalTeamsWithDiversityCheck(availableMembers, memberGameCount, false, skillBalance);
-                            if (teams && validateTeamCombination(teams.team1, teams.team2) && isNewCombination(teams.team1, teams.team2)) {
-                                console.log(`⚠️ ${gameId}: 게임 타입 제약 완화하여 생성`);
-                                break;
-                            }
-                            teams = null;
-                        }
                     }
                 }
 
