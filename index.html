@@ -181,15 +181,19 @@
                 </div>
             </div>
 
-            <div class="form-section" id="condition-settings">
-                <label class="form-label">조건 설정</label>
-                <div class="checkbox-group">
-                    <label class="checkbox-option" id="skill-balance-option">
-                        <input type="checkbox" id="skill-balance">
-                        <span>실력 균형 (비슷한 실력끼리 매칭)</span>
-                    </label>
+            <div class="form-section" id="game-settings">
+                <label class="form-label">게임 설정</label>
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>코트 수</label>
+                        <input type="number" id="court-count" min="1" max="8" value="2" onchange="updateGameCountInfo(); typeof updateGameTypeDistribution === 'function' && updateGameTypeDistribution()">
+                    </div>
+                    <div class="input-group" id="time-count-group">
+                        <label>타임 수</label>
+                        <input type="number" id="time-count" min="1" max="20" value="4" onchange="updateGameCountInfo(); typeof updateGameTypeDistribution === 'function' && updateGameTypeDistribution()">
+                    </div>
                 </div>
-                <p class="info-text" id="condition-info">* 다음 단계에서 대진표가 나오면 수정이 가능합니다</p>
+                <p class="info-text" id="game-count-info">총 8개의 게임이 생성됩니다</p>
             </div>
 
             <!-- 게임 타입 분배 설정 -->
@@ -249,19 +253,15 @@
                 </div>
             </div>
 
-            <div class="form-section" id="game-settings">
-                <label class="form-label">게임 설정</label>
-                <div class="input-row">
-                    <div class="input-group">
-                        <label>코트 수</label>
-                        <input type="number" id="court-count" min="1" max="8" value="2" onchange="updateGameCountInfo(); typeof updateGameTypeDistribution === 'function' && updateGameTypeDistribution()">
-                    </div>
-                    <div class="input-group" id="time-count-group">
-                        <label>타임 수</label>
-                        <input type="number" id="time-count" min="1" max="20" value="4" onchange="updateGameCountInfo(); typeof updateGameTypeDistribution === 'function' && updateGameTypeDistribution()">
-                    </div>
+            <div class="form-section" id="condition-settings">
+                <label class="form-label">조건 설정</label>
+                <div class="checkbox-group">
+                    <label class="checkbox-option" id="skill-balance-option">
+                        <input type="checkbox" id="skill-balance">
+                        <span>실력 균형 (비슷한 실력끼리 매칭)</span>
+                    </label>
                 </div>
-                <p class="info-text" id="game-count-info">총 8개의 게임이 생성됩니다</p>
+                <p class="info-text" id="condition-info">* 다음 단계에서 대진표가 나오면 수정이 가능합니다</p>
             </div>
 
             <!-- 셀프 대진표 생성 섹션 -->
