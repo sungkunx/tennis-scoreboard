@@ -427,12 +427,40 @@ function createRandomBracket(members, courtCount, timeCount, genderSeparate, ski
             );
 
             if (availableMembers.length >= 4) {
-                // 비율 기반 팀 선택 또는 기존 방식
-                const teams = genderSeparate && gameTypeDistribution ? 
-                    selectTeamsWithRatioDistribution(availableMembers, memberGameCount, skillBalance, gameTypeDistribution, games.length) :
-                    selectOptimalTeamsWithDiversityCheck(availableMembers, memberGameCount, genderSeparate, skillBalance);
-                
-                if (teams && validateTeamCombination(teams.team1, teams.team2) && isNewCombination(teams.team1, teams.team2)) {
+                let teams = null;
+                let attempts = 0;
+                const maxAttempts = 5;
+
+                // 여러 번 시도
+                while (!teams && attempts < maxAttempts) {
+                    attempts++;
+
+                    // 비율 기반 팀 선택 또는 기존 방식
+                    teams = genderSeparate && gameTypeDistribution ?
+                        selectTeamsWithRatioDistribution(availableMembers, memberGameCount, skillBalance, gameTypeDistribution, games.length) :
+                        selectOptimalTeamsWithDiversityCheck(availableMembers, memberGameCount, genderSeparate, skillBalance);
+
+                    // 검증
+                    if (teams && validateTeamCombination(teams.team1, teams.team2) && isNewCombination(teams.team1, teams.team2)) {
+                        // 성공!
+                        break;
+                    } else {
+                        // 실패 시 다시 시도 (다른 조합)
+                        teams = null;
+
+                        // 2번째 시도부터는 게임 타입 제약 없이 시도
+                        if (attempts >= 2 && genderSeparate) {
+                            teams = selectOptimalTeamsWithDiversityCheck(availableMembers, memberGameCount, false, skillBalance);
+                            if (teams && validateTeamCombination(teams.team1, teams.team2) && isNewCombination(teams.team1, teams.team2)) {
+                                console.log(`⚠️ ${gameId}: 게임 타입 제약 완화하여 생성`);
+                                break;
+                            }
+                            teams = null;
+                        }
+                    }
+                }
+
+                if (teams) {
                     // 조합 등록
                     registerCombination(teams.team1, teams.team2);
                     // 개별 대전 빈도 등록
@@ -440,34 +468,43 @@ function createRandomBracket(members, courtCount, timeCount, genderSeparate, ski
                     // 팀메이트 빈도 등록
                     registerTeammates(teams.team1, teams.team2);
 
+                    const actualType = getTeamType(teams.team1, teams.team2);
+
+                    // 실제 생성된 게임 타입 카운터 증가
+                    if (actualType === '남복') actualGameTypeCounts.남복++;
+                    else if (actualType === '여복') actualGameTypeCounts.여복++;
+                    else if (actualType === '혼복') actualGameTypeCounts.혼복++;
+
                     games.push({
                         id: gameId,
                         time: time,
                         court: court,
                         team1: teams.team1,
                         team2: teams.team2,
-                        teamType: getTeamType(teams.team1, teams.team2),
+                        teamType: actualType,
                         score1: null,
                         score2: null,
                         completed: false
                     });
-                    
+
                     // 현재 타임 멤버에 추가
                     currentTimeMembers.push(...teams.team1, ...teams.team2);
-                    
+
                     // 게임 수 증가
                     [...teams.team1, ...teams.team2].forEach(member => {
                         memberGameCount[member.name]++;
                     });
-                    
-                    console.log(`✅ ${gameId} 생성:`, {
+
+                    console.log(`✅ ${gameId} 생성 (시도 ${attempts}회):`, {
                         team1: teams.team1.map(m => `${m.name}(${m.gender})`),
                         team2: teams.team2.map(m => `${m.name}(${m.gender})`),
-                        teamType: getTeamType(teams.team1, teams.team2)
+                        teamType: actualType
                     });
                 } else {
-                    console.log(`❌ ${gameId} 생성 실패 (중복 조합 또는 금지 조합)`);
+                    console.log(`❌ ${gameId} 생성 실패 (${maxAttempts}회 시도 후 포기)`);
                 }
+            } else {
+                console.log(`⚠️ ${gameId} 건너뜀 (가용 선수 부족: ${availableMembers.length}명)`);
             }
         }
     }
@@ -820,50 +857,31 @@ function selectTeamsWithRatioDistribution(availableMembers, memberGameCount, ski
     const targetGameType = determineNextGameType(gameTypeDistribution, actualGameTypeCounts);
     console.log(`🎯 목표 게임 타입: ${targetGameType}`);
     
-    // 목표 타입에 따라 팀 생성
-    let result = null;
-    let actualType = null;
-
+    // 목표 타입에 따라 팀 생성 (카운터 증가는 메인 루프에서 처리)
     switch (targetGameType) {
         case '남복':
             if (males.length >= 4) {
                 const selectedMales = selectDiversePlayers(males, 4, currentGameIndex, '남성');
                 const teams = createBalancedTeams(selectedMales, skillBalance);
                 if (teams && validateTeamCombination(teams.team1, teams.team2)) {
-                    console.log('🔵 비율 기반 남복 생성 성공');
-                    actualGameTypeCounts.남복++;
+                    console.log('🔵 비율 기반 남복 생성 시도 성공');
                     return teams;
                 }
             }
             // 남복 실패 시 다른 타입으로 폴백
-            result = tryFallbackGameType(availableMembers, memberGameCount, skillBalance, currentGameIndex, '남복');
-            if (result) {
-                actualType = getTeamType(result.team1, result.team2);
-                if (actualType === '남복') actualGameTypeCounts.남복++;
-                else if (actualType === '여복') actualGameTypeCounts.여복++;
-                else if (actualType === '혼복') actualGameTypeCounts.혼복++;
-            }
-            return result;
+            return tryFallbackGameType(availableMembers, memberGameCount, skillBalance, currentGameIndex, '남복');
 
         case '여복':
             if (females.length >= 4) {
                 const selectedFemales = selectDiversePlayers(females, 4, currentGameIndex, '여성');
                 const teams = createBalancedTeams(selectedFemales, skillBalance);
                 if (teams && validateTeamCombination(teams.team1, teams.team2)) {
-                    console.log('🔴 비율 기반 여복 생성 성공');
-                    actualGameTypeCounts.여복++;
+                    console.log('🔴 비율 기반 여복 생성 시도 성공');
                     return teams;
                 }
             }
             // 여복 실패 시 다른 타입으로 폴백
-            result = tryFallbackGameType(availableMembers, memberGameCount, skillBalance, currentGameIndex, '여복');
-            if (result) {
-                actualType = getTeamType(result.team1, result.team2);
-                if (actualType === '남복') actualGameTypeCounts.남복++;
-                else if (actualType === '여복') actualGameTypeCounts.여복++;
-                else if (actualType === '혼복') actualGameTypeCounts.혼복++;
-            }
-            return result;
+            return tryFallbackGameType(availableMembers, memberGameCount, skillBalance, currentGameIndex, '여복');
 
         case '혼복':
             if (males.length >= 2 && females.length >= 2) {
@@ -880,20 +898,12 @@ function selectTeamsWithRatioDistribution(availableMembers, memberGameCount, ski
                         finalTeams = balanceSkillsNew([...selectedMales, ...selectedFemales], finalTeams);
                     }
 
-                    console.log('🟡 비율 기반 혼복 생성 성공');
-                    actualGameTypeCounts.혼복++;
+                    console.log('🟡 비율 기반 혼복 생성 시도 성공');
                     return finalTeams;
                 }
             }
             // 혼복 실패 시 다른 타입으로 폴백
-            result = tryFallbackGameType(availableMembers, memberGameCount, skillBalance, currentGameIndex, '혼복');
-            if (result) {
-                actualType = getTeamType(result.team1, result.team2);
-                if (actualType === '남복') actualGameTypeCounts.남복++;
-                else if (actualType === '여복') actualGameTypeCounts.여복++;
-                else if (actualType === '혼복') actualGameTypeCounts.혼복++;
-            }
-            return result;
+            return tryFallbackGameType(availableMembers, memberGameCount, skillBalance, currentGameIndex, '혼복');
 
         default:
             console.log('❌ 알 수 없는 게임 타입');
