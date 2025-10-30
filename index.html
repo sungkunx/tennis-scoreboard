@@ -42,7 +42,7 @@
                         </div>
                         <div class="card-arrow">→</div>
                     </div>
-                    
+
                     <div class="action-card secondary" onclick="showExistingMembersModal()">
                         <div class="card-icon">👥</div>
                         <div class="card-content">
@@ -50,6 +50,45 @@
                             <p>저장된 멤버 목록으로 빠르게 시작</p>
                         </div>
                         <div class="card-arrow">→</div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <div class="settings-card">
+                        <div class="settings-header">
+                            <h3>연결 모드</h3>
+                            <p>데이터 저장 방식을 선택하세요</p>
+                        </div>
+                        <div class="mode-toggle">
+                            <div class="mode-btn active" onclick="setMode('offline')">
+                                <span class="mode-icon">📱</span>
+                                <span class="mode-text">오프라인</span>
+                            </div>
+                            <div class="mode-btn" onclick="setMode('online')">
+                                <span class="mode-icon">☁️</span>
+                                <span class="mode-text">온라인</span>
+                            </div>
+                        </div>
+                        <div class="online-code" id="online-code">
+                            <div class="online-code-label">접속 코드를 입력하세요:</div>
+                            <input type="text" class="code-input" id="code-input" placeholder="접속 코드 입력">
+                            <button class="code-submit" onclick="verifyCode()">연결</button>
+                        </div>
+                    </div>
+
+                    <div class="backup-section">
+                        <div class="backup-card">
+                            <div class="backup-header">
+                                <h3>데이터 백업</h3>
+                                <p>소중한 모임 데이터를 안전하게 보관하세요</p>
+                            </div>
+                            <div class="backup-actions">
+                                <button class="backup-btn" onclick="showBackupModal()">
+                                    <span class="backup-icon">📦</span>
+                                    <span>백업 관리</span>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -66,45 +105,6 @@
                             <div class="empty-icon">📋</div>
                             <h3>아직 모임이 없습니다</h3>
                             <p>새 모임을 만들어서 시작해보세요!</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <div class="settings-card">
-                    <div class="settings-header">
-                        <h3>연결 모드</h3>
-                        <p>데이터 저장 방식을 선택하세요</p>
-                    </div>
-                    <div class="mode-toggle">
-                        <div class="mode-btn active" onclick="setMode('offline')">
-                            <span class="mode-icon">📱</span>
-                            <span class="mode-text">오프라인</span>
-                        </div>
-                        <div class="mode-btn" onclick="setMode('online')">
-                            <span class="mode-icon">☁️</span>
-                            <span class="mode-text">온라인</span>
-                        </div>
-                    </div>
-                    <div class="online-code" id="online-code">
-                        <div class="online-code-label">접속 코드를 입력하세요:</div>
-                        <input type="text" class="code-input" id="code-input" placeholder="접속 코드 입력">
-                        <button class="code-submit" onclick="verifyCode()">연결</button>
-                    </div>
-                </div>
-                
-                <div class="backup-section">
-                    <div class="backup-card">
-                        <div class="backup-header">
-                            <h3>데이터 백업</h3>
-                            <p>소중한 모임 데이터를 안전하게 보관하세요</p>
-                        </div>
-                        <div class="backup-actions">
-                            <button class="backup-btn" onclick="showBackupModal()">
-                                <span class="backup-icon">📦</span>
-                                <span>백업 관리</span>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -184,13 +184,6 @@
             <div class="form-section" id="condition-settings">
                 <label class="form-label">조건 설정</label>
                 <div class="checkbox-group">
-                    <label class="checkbox-option" id="gender-separate-option">
-                        <input type="checkbox" id="gender-separate" onchange="updateGenderWarning()">
-                        <span>성별 매칭 (남성끼리, 여성끼리 매칭)</span>
-                    </label>
-                    <div class="gender-warning" id="gender-warning" style="display: none;">
-                        <p class="warning-text">⚠️ 한가지 성별이 4명 이하인 경우에는 정상적으로 매칭되지 않을 수 있습니다.</p>
-                    </div>
                     <label class="checkbox-option" id="skill-balance-option">
                         <input type="checkbox" id="skill-balance">
                         <span>실력 균형 (비슷한 실력끼리 매칭)</span>
@@ -199,16 +192,73 @@
                 <p class="info-text" id="condition-info">* 다음 단계에서 대진표가 나오면 수정이 가능합니다</p>
             </div>
 
+            <!-- 게임 타입 분배 설정 -->
+            <div class="form-section" id="game-type-distribution-section">
+                <label class="form-label">게임 타입 분배</label>
+                <div id="game-type-distribution" style="padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0;">
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <div id="member-gender-summary" style="color: #666; font-size: 0.9em;">
+                            남성 0명, 여성 0명
+                        </div>
+                        <button type="button" onclick="autoCalculateDistribution()" style="padding: 8px 16px; font-size: 0.9em; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">🔄 자동 계산</button>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 18px;">
+                        <!-- 남복 -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-weight: 600; font-size: 1em; color: #333;">남복</label>
+                                <span id="male-games-constraint" style="color: #999; font-size: 0.85em;">(최대 0)</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" onclick="decrementGameCount('male-games')" style="flex: 0 0 48px; height: 48px; background: #f8f9fa; border: 2px solid #ddd; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center;">−</button>
+                                <input type="number" id="male-games" min="0" value="0" onchange="updateGameTypeDistribution()" oninput="updateGameTypeDistribution()" style="flex: 1; height: 48px; padding: 0 12px; border: 2px solid #007bff; border-radius: 8px; text-align: center; font-size: 1.3em; font-weight: 600; color: #333;">
+                                <button type="button" onclick="incrementGameCount('male-games')" style="flex: 0 0 48px; height: 48px; background: #007bff; border: 2px solid #007bff; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                                <span style="flex: 0 0 40px; color: #666; font-size: 0.95em;">게임</span>
+                            </div>
+                        </div>
+                        <!-- 여복 -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-weight: 600; font-size: 1em; color: #333;">여복</label>
+                                <span id="female-games-constraint" style="color: #999; font-size: 0.85em;">(최대 0)</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <button type="button" onclick="decrementGameCount('female-games')" style="flex: 0 0 48px; height: 48px; background: #f8f9fa; border: 2px solid #ddd; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center;">−</button>
+                                <input type="number" id="female-games" min="0" value="0" onchange="updateGameTypeDistribution()" oninput="updateGameTypeDistribution()" style="flex: 1; height: 48px; padding: 0 12px; border: 2px solid #007bff; border-radius: 8px; text-align: center; font-size: 1.3em; font-weight: 600; color: #333;">
+                                <button type="button" onclick="incrementGameCount('female-games')" style="flex: 0 0 48px; height: 48px; background: #007bff; border: 2px solid #007bff; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                                <span style="flex: 0 0 40px; color: #666; font-size: 0.95em;">게임</span>
+                            </div>
+                        </div>
+                        <!-- 혼복 -->
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <label style="font-weight: 600; font-size: 1em; color: #007bff;">혼복</label>
+                                <span style="color: #007bff; font-size: 0.85em;">(자동 계산)</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="flex: 1; height: 48px; padding: 0 12px; border: 2px solid #ddd; border-radius: 8px; background: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+                                    <span id="mixed-games" style="font-size: 1.3em; font-weight: 600; color: #666;">0</span>
+                                </div>
+                                <span style="flex: 0 0 40px; color: #666; font-size: 0.95em;">게임</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="distribution-validation" style="margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 0.9em;">
+                        ✅ 유효한 분배입니다
+                    </div>
+                </div>
+            </div>
+
             <div class="form-section" id="game-settings">
                 <label class="form-label">게임 설정</label>
                 <div class="input-row">
                     <div class="input-group">
                         <label>코트 수</label>
-                        <input type="number" id="court-count" min="1" max="8" value="2" onchange="updateGameCountInfo()">
+                        <input type="number" id="court-count" min="1" max="8" value="2" onchange="updateGameCountInfo(); typeof updateGameTypeDistribution === 'function' && updateGameTypeDistribution()">
                     </div>
                     <div class="input-group" id="time-count-group">
                         <label>타임 수</label>
-                        <input type="number" id="time-count" min="1" max="20" value="4" onchange="updateGameCountInfo()">
+                        <input type="number" id="time-count" min="1" max="20" value="4" onchange="updateGameCountInfo(); typeof updateGameTypeDistribution === 'function' && updateGameTypeDistribution()">
                     </div>
                 </div>
                 <p class="info-text" id="game-count-info">총 8개의 게임이 생성됩니다</p>
@@ -282,7 +332,7 @@
             </div>
 
             <div class="button-group">
-                <button class="btn-secondary" onclick="regenerateBracket()">대진표 재생성</button>
+                <button class="btn-secondary" onclick="editSettingsFromBracket()">← 이전 단계로 가기</button>
                 <button class="btn-primary" onclick="proceedToGame()">진행하기</button>
             </div>
         </div>

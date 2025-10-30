@@ -170,6 +170,7 @@ function completeStep1() {
         name: meetingName,
         members: members,
         date: new Date().toLocaleDateString('ko-KR'),
+        timestamp: Date.now(),
         status: 'setup',
         step: 'step1-completed',
         // 기존 데이터 보존
@@ -343,42 +344,61 @@ function generateBracket() {
 
 // 기존 랜덤 대진표 생성 함수 (bracket.js에서 이동)
 function generateRandomBracket() {
-    const genderSeparate = document.getElementById('gender-separate').checked;
-    const skillBalance = document.getElementById('skill-balance').checked;
+    const skillBalance = document.getElementById('skill-balance')?.checked || false;
     const courtCount = parseInt(document.getElementById('court-count').value);
     const timeCount = parseInt(document.getElementById('time-count').value);
-    
+
+    // 게임 타입 분배 가져오기 (항상 사용)
+    const maleGames = parseInt(document.getElementById('male-games')?.value) || 0;
+    const femaleGames = parseInt(document.getElementById('female-games')?.value) || 0;
+    const mixedGamesDisplay = document.getElementById('mixed-games');
+    const mixedGames = mixedGamesDisplay ? parseInt(mixedGamesDisplay.textContent) || 0 : 0;
+
+    const manualDistribution = {
+        남복: maleGames,
+        여복: femaleGames,
+        혼복: mixedGames
+    };
+    console.log('📊 게임 타입 분배 적용:', manualDistribution);
+
     // 게임 설정 저장
     appState.tempMeeting.settings = {
         bracketType: 'random',
-        genderSeparate,
         skillBalance,
         courtCount,
-        timeCount
+        timeCount,
+        manualDistribution
     };
     appState.tempMeeting.step = 'step2-completed';
-    
+
     // Step2 완료 시 임시 저장 (최초 생성 시만, 재생성이 아닌 경우만)
     if (!appState.tempMeeting.bracket && !window.isRegenerating) {
         saveStepProgress();
     }
-    
-    // 대진표 생성
-    const bracket = createRandomBracket(appState.tempMeeting.members, courtCount, timeCount, genderSeparate, skillBalance);
+
+    // 대진표 생성 (성별 구분은 항상 true로 전달하여 게임 타입 분배 사용)
+    const bracket = createRandomBracket(
+        appState.tempMeeting.members,
+        courtCount,
+        timeCount,
+        true,  // genderSeparate: 항상 true (게임 타입 분배 사용)
+        skillBalance,
+        manualDistribution
+    );
     appState.tempMeeting.bracket = bracket;
     appState.tempMeeting.step = 'bracket-generated';
-    
+
     // 대진표 생성 시 임시 저장 (재생성이 아닌 경우만)
     if (!window.isRegenerating && appState.tempMeeting.status !== 'ready') {
         saveStepProgress();
     }
-    
+
     // 재생성 플래그 초기화
     window.isRegenerating = false;
-    
+
     // 대진표 상태만 업데이트, 아직 저장하지 않음
     appState.tempMeeting.status = 'ready';
-    
+
     // 대진표 화면으로 이동
     showBracketScreen();
 }
@@ -542,4 +562,264 @@ function generateKDKBracket() {
     
     // 대진표 화면으로 이동
     showBracketScreen();
+}
+// ============================================
+// 게임 타입 분배 관련 함수들
+// ============================================
+
+// 게임 타입 분배 초기화 (성별 매칭과 무관하게 항상 호출)
+function initGameTypeDistribution() {
+    if (typeof updateGameTypeDistribution === 'function') {
+        updateGameTypeDistribution();
+    }
+}
+
+// +/- 버튼으로 게임 수 증가
+function incrementGameCount(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const currentValue = parseInt(input.value) || 0;
+    const maxValue = parseInt(input.max) || 999;
+
+    if (currentValue < maxValue) {
+        input.value = currentValue + 1;
+        updateGameTypeDistribution();
+    }
+}
+
+// +/- 버튼으로 게임 수 감소
+function decrementGameCount(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+
+    const currentValue = parseInt(input.value) || 0;
+    const minValue = parseInt(input.min) || 0;
+
+    if (currentValue > minValue) {
+        input.value = currentValue - 1;
+        updateGameTypeDistribution();
+    }
+}
+
+// 멤버 성별 정보 가져오기
+function getMemberGenderInfo() {
+    if (!appState.tempMeeting || !appState.tempMeeting.members) {
+        return { males: 0, females: 0, total: 0 };
+    }
+
+    const members = appState.tempMeeting.members;
+    const males = members.filter(m => m.gender === '남').length;
+    const females = members.filter(m => m.gender === '여').length;
+
+    return { males, females, total: members.length };
+}
+
+// 게임 타입 제약 조건 계산
+function calculateGameTypeConstraints(males, females, totalGames) {
+    return {
+        maleGames: {
+            min: 0,
+            max: males >= 4 ? totalGames : 0,
+            possible: males >= 4
+        },
+        femaleGames: {
+            min: 0,
+            max: females >= 4 ? totalGames : 0,
+            possible: females >= 4
+        },
+        mixedGames: {
+            min: 0,
+            max: (males >= 2 && females >= 2) ? totalGames : 0,
+            possible: males >= 2 && females >= 2
+        }
+    };
+}
+
+// 게임 타입 분배 검증
+function validateGameTypeDistribution(maleGames, femaleGames, totalGames, males, females) {
+    const constraints = calculateGameTypeConstraints(males, females, totalGames);
+    const mixedGames = totalGames - maleGames - femaleGames;
+
+    const errors = [];
+
+    // 남복 검증
+    if (maleGames > constraints.maleGames.max) {
+        if (males < 4) {
+            errors.push(`남복을 생성할 수 없습니다 (남성 ${males}명 < 4명)`);
+        } else {
+            errors.push(`남복은 최대 ${constraints.maleGames.max}게임까지 가능합니다`);
+        }
+    }
+
+    // 여복 검증
+    if (femaleGames > constraints.femaleGames.max) {
+        if (females < 4) {
+            errors.push(`여복을 생성할 수 없습니다 (여성 ${females}명 < 4명)`);
+        } else {
+            errors.push(`여복은 최대 ${constraints.femaleGames.max}게임까지 가능합니다`);
+        }
+    }
+
+    // 합계 검증
+    if (maleGames + femaleGames > totalGames) {
+        errors.push(`남복 + 여복이 총 게임 수(${totalGames})를 초과합니다`);
+    }
+
+    // 혼복 검증
+    if (mixedGames < 0) {
+        errors.push('혼복 게임이 음수가 될 수 없습니다');
+    } else if (mixedGames > 0 && !constraints.mixedGames.possible) {
+        if (males < 2) {
+            errors.push(`혼복을 생성할 수 없습니다 (남성 ${males}명 < 2명)`);
+        } else if (females < 2) {
+            errors.push(`혼복을 생성할 수 없습니다 (여성 ${females}명 < 2명)`);
+        }
+    }
+
+    return {
+        valid: errors.length === 0,
+        errors,
+        mixedGames,
+        constraints
+    };
+}
+
+// 게임 타입 분배 UI 업데이트
+function updateGameTypeDistribution() {
+    const genderInfo = getMemberGenderInfo();
+    const courtCount = parseInt(document.getElementById('court-count')?.value) || 2;
+    const timeCount = parseInt(document.getElementById('time-count')?.value) || 4;
+    const totalGames = courtCount * timeCount;
+
+    const maleGamesInput = document.getElementById('male-games');
+    const femaleGamesInput = document.getElementById('female-games');
+    const mixedGamesDisplay = document.getElementById('mixed-games');
+
+    if (!maleGamesInput || !femaleGamesInput || !mixedGamesDisplay) return;
+
+    const maleGames = parseInt(maleGamesInput.value) || 0;
+    const femaleGames = parseInt(femaleGamesInput.value) || 0;
+
+    // 1. 멤버 성별 요약 업데이트
+    const summaryEl = document.getElementById('member-gender-summary');
+    if (summaryEl) {
+        summaryEl.textContent = `남성 ${genderInfo.males}명, 여성 ${genderInfo.females}명`;
+    }
+
+    // 2. 제약 조건 계산 및 표시
+    const validation = validateGameTypeDistribution(
+        maleGames,
+        femaleGames,
+        totalGames,
+        genderInfo.males,
+        genderInfo.females
+    );
+
+    const constraints = validation.constraints;
+
+    // 남복 제약 표시
+    const maleConstraintEl = document.getElementById('male-games-constraint');
+    if (maleConstraintEl) {
+        if (constraints.maleGames.possible) {
+            maleConstraintEl.textContent = `(최대 ${constraints.maleGames.max})`;
+            maleConstraintEl.style.color = '#999';
+            maleGamesInput.max = constraints.maleGames.max;
+        } else {
+            maleConstraintEl.textContent = `(불가 - 남성 ${genderInfo.males}명)`;
+            maleConstraintEl.style.color = '#ff6b6b';
+            maleGamesInput.max = 0;
+        }
+    }
+
+    // 여복 제약 표시
+    const femaleConstraintEl = document.getElementById('female-games-constraint');
+    if (femaleConstraintEl) {
+        if (constraints.femaleGames.possible) {
+            femaleConstraintEl.textContent = `(최대 ${constraints.femaleGames.max})`;
+            femaleConstraintEl.style.color = '#999';
+            femaleGamesInput.max = constraints.femaleGames.max;
+        } else {
+            femaleConstraintEl.textContent = `(불가 - 여성 ${genderInfo.females}명)`;
+            femaleConstraintEl.style.color = '#ff6b6b';
+            femaleGamesInput.max = 0;
+        }
+    }
+
+    // 3. 혼복 자동 계산 (span으로 표시)
+    mixedGamesDisplay.textContent = validation.mixedGames;
+
+    // 4. 검증 메시지 표시
+    const validationEl = document.getElementById('distribution-validation');
+    if (validationEl) {
+        if (validation.valid) {
+            validationEl.innerHTML = `✅ 유효한 분배입니다 (총 ${totalGames}게임)`;
+            validationEl.style.background = '#d4edda';
+            validationEl.style.color = '#155724';
+            validationEl.style.border = '1px solid #c3e6cb';
+        } else {
+            validationEl.innerHTML = '❌ ' + validation.errors.join('<br>❌ ');
+            validationEl.style.background = '#f8d7da';
+            validationEl.style.color = '#721c24';
+            validationEl.style.border = '1px solid #f5c6cb';
+        }
+    }
+}
+
+// 자동 계산 버튼
+function autoCalculateDistribution() {
+    const genderInfo = getMemberGenderInfo();
+    const courtCount = parseInt(document.getElementById('court-count')?.value) || 2;
+    const timeCount = parseInt(document.getElementById('time-count')?.value) || 4;
+    const totalGames = courtCount * timeCount;
+
+    // bracket.js의 calculateGameTypeDistribution 함수 사용
+    if (typeof calculateGameTypeDistribution === 'function') {
+        const distribution = calculateGameTypeDistribution(
+            genderInfo.males,
+            genderInfo.females,
+            totalGames
+        );
+
+        // 계산된 값을 input에 설정
+        const maleGamesInput = document.getElementById('male-games');
+        const femaleGamesInput = document.getElementById('female-games');
+
+        if (maleGamesInput) maleGamesInput.value = distribution.남복 || 0;
+        if (femaleGamesInput) femaleGamesInput.value = distribution.여복 || 0;
+
+        // UI 업데이트
+        updateGameTypeDistribution();
+
+        console.log('🔄 자동 계산 완료:', distribution);
+    } else {
+        // fallback: 간단한 계산
+        const males = genderInfo.males;
+        const females = genderInfo.females;
+
+        let maleGames = 0;
+        let femaleGames = 0;
+
+        if (males >= 4 && females >= 4) {
+            // 비율 기반 분배
+            const totalPlayers = males + females;
+            const maleRatio = males / totalPlayers;
+            const femaleRatio = females / totalPlayers;
+
+            maleGames = Math.floor(totalGames * maleRatio * 0.75); // 25% 혼복 전환
+            femaleGames = Math.floor(totalGames * femaleRatio * 0.75);
+        } else if (males >= 4) {
+            maleGames = Math.floor(totalGames * 0.6);
+        } else if (females >= 4) {
+            femaleGames = Math.floor(totalGames * 0.6);
+        }
+
+        const maleGamesInput = document.getElementById('male-games');
+        const femaleGamesInput = document.getElementById('female-games');
+
+        if (maleGamesInput) maleGamesInput.value = maleGames;
+        if (femaleGamesInput) femaleGamesInput.value = femaleGames;
+
+        updateGameTypeDistribution();
+    }
 }

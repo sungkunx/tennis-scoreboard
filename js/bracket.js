@@ -367,13 +367,14 @@ function adjustMixedGamesWithLimit(distribution, balance, totalGames) {
 }
 
 // 메인 대진표 생성 함수
-function createRandomBracket(members, courtCount, timeCount, genderSeparate, skillBalance) {
-    console.log('🎾 새로운 대진표 알고리즘 시작:', { 
-        멤버수: members.length, 
-        코트수: courtCount, 
-        타임수: timeCount, 
-        성별구분: genderSeparate, 
-        실력균형: skillBalance 
+function createRandomBracket(members, courtCount, timeCount, genderSeparate, skillBalance, manualDistribution = null) {
+    console.log('🎾 새로운 대진표 알고리즘 시작:', {
+        멤버수: members.length,
+        코트수: courtCount,
+        타임수: timeCount,
+        성별구분: genderSeparate,
+        실력균형: skillBalance,
+        수동분배: manualDistribution
     });
 
     // 조합 추적 시스템 초기화
@@ -382,20 +383,26 @@ function createRandomBracket(members, courtCount, timeCount, genderSeparate, ski
 
     const games = [];
     const totalGames = courtCount * timeCount;
-    
+
     // 각 멤버의 게임 수 추적
     const memberGameCount = {};
     members.forEach(member => {
         memberGameCount[member.name] = 0;
     });
 
-    // 성별 구분 모드일 때 비율 기반 게임 타입 분배 계산
+    // 성별 구분 모드일 때 게임 타입 분배 결정
     let gameTypeDistribution = null;
     if (genderSeparate) {
-        const males = members.filter(m => m.gender === '남');
-        const females = members.filter(m => m.gender === '여');
-        gameTypeDistribution = calculateGameTypeDistribution(males.length, females.length, totalGames);
-        console.log('📊 게임 타입 분배:', gameTypeDistribution);
+        // 수동 분배가 있으면 우선 사용, 없으면 자동 계산
+        if (manualDistribution) {
+            gameTypeDistribution = manualDistribution;
+            console.log('📊 수동 게임 타입 분배 적용:', gameTypeDistribution);
+        } else {
+            const males = members.filter(m => m.gender === '남');
+            const females = members.filter(m => m.gender === '여');
+            gameTypeDistribution = calculateGameTypeDistribution(males.length, females.length, totalGames);
+            console.log('📊 자동 게임 타입 분배:', gameTypeDistribution);
+        }
     }
 
     for (let time = 1; time <= timeCount; time++) {

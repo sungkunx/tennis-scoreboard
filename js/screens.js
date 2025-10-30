@@ -61,14 +61,8 @@ function showStep2() {
             timeCountInput.value = settings.timeCount;
         }
 
-        // 성별 구분 복원 (자동 대진표일 때만)
+        // 실력 균형 복원 (자동 대진표일 때만)
         if (settings.bracketType === 'random') {
-            const genderSeparateCheckbox = document.getElementById('gender-separate');
-            if (genderSeparateCheckbox && settings.genderSeparate !== undefined) {
-                genderSeparateCheckbox.checked = settings.genderSeparate;
-            }
-
-            // 실력 균형 복원
             const skillBalanceCheckbox = document.getElementById('skill-balance');
             if (skillBalanceCheckbox && settings.skillBalance !== undefined) {
                 skillBalanceCheckbox.checked = settings.skillBalance;
@@ -80,6 +74,28 @@ function showStep2() {
             const kdkSkillBalanceCheckbox = document.getElementById('kdk-skill-balance');
             if (kdkSkillBalanceCheckbox) {
                 kdkSkillBalanceCheckbox.checked = settings.kdkSkillBalance;
+            }
+        }
+
+        // 게임 타입 분배 복원 (자동 대진표일 때만)
+        if (settings.bracketType === 'random' && settings.manualDistribution) {
+            const maleGamesInput = document.getElementById('male-games');
+            const femaleGamesInput = document.getElementById('female-games');
+            const mixedGamesDisplay = document.getElementById('mixed-games');
+
+            if (maleGamesInput && settings.manualDistribution.남복 !== undefined) {
+                maleGamesInput.value = settings.manualDistribution.남복;
+            }
+            if (femaleGamesInput && settings.manualDistribution.여복 !== undefined) {
+                femaleGamesInput.value = settings.manualDistribution.여복;
+            }
+            if (mixedGamesDisplay && settings.manualDistribution.혼복 !== undefined) {
+                mixedGamesDisplay.textContent = settings.manualDistribution.혼복;
+            }
+
+            // UI 업데이트
+            if (typeof updateGameTypeDistribution === 'function') {
+                updateGameTypeDistribution();
             }
         }
 

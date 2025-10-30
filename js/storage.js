@@ -39,11 +39,28 @@ function loadMeetings(searchTerm = '') {
     // 검색 필터링
     let filteredMeetings = appState.meetings;
     if (searchTerm) {
-        filteredMeetings = appState.meetings.filter(meeting => 
+        filteredMeetings = appState.meetings.filter(meeting =>
             meeting.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
-    
+
+    // 최신순 정렬 (배열 인덱스 역순 = 최근 추가된 것이 위로)
+    // timestamp나 id가 있으면 그것 기준으로, 없으면 배열 순서 역순
+    filteredMeetings = [...filteredMeetings].sort((a, b) => {
+        // timestamp가 있으면 사용 (없으면 0)
+        const timeA = a.timestamp || 0;
+        const timeB = b.timestamp || 0;
+
+        if (timeA && timeB) {
+            return timeB - timeA; // timestamp 기준 내림차순
+        }
+
+        // timestamp가 없으면 원본 배열에서의 인덱스 기준 역순
+        const indexA = appState.meetings.indexOf(a);
+        const indexB = appState.meetings.indexOf(b);
+        return indexB - indexA;
+    });
+
     if (filteredMeetings.length === 0) {
         meetingList.innerHTML = `<div class="empty-meeting-list">${searchTerm ? '검색 결과가 없습니다' : '저장된 모임이 없습니다'}</div>`;
         return;

@@ -619,18 +619,14 @@ function generateManualGamesGrid() {
 // 수동 모드 설정
 function setupManualMode() {
     console.log('✏️ 셀프 대진표 모드 설정 시작...');
-    // 성별 매칭 옵션 비활성화
     const conditionSettings = document.getElementById('condition-settings');
     const manualBracketSettings = document.getElementById('manual-bracket-settings');
-    
+    const gameTypeDistributionSection = document.getElementById('game-type-distribution-section');
+
     if (conditionSettings) {
         conditionSettings.innerHTML = `
             <label class="form-label">조건 설정</label>
             <div class="checkbox-group">
-                <label class="checkbox-option disabled" id="gender-separate-option">
-                    <input type="checkbox" id="gender-separate" disabled>
-                    <span>성별 매칭 (셀프 대진표에서는 사용할 수 없음)</span>
-                </label>
                 <label class="checkbox-option" id="skill-balance-option">
                     <input type="checkbox" id="skill-balance">
                     <span>실력 구분 (가능한 상대팀은 실력이 비슷하게 설정)</span>
@@ -639,21 +635,26 @@ function setupManualMode() {
             <p class="info-text" id="condition-info">* 셀프 대진표에서는 각 게임의 복식 속성을 직접 선택합니다</p>
         `;
     }
-    
+
+    // 게임 타입 분배 섹션 숨김 (셀프 대진표는 수동 선택)
+    if (gameTypeDistributionSection) {
+        gameTypeDistributionSection.style.display = 'none';
+    }
+
     // 수동 브래킷 설정 섹션 표시
     if (manualBracketSettings) {
         manualBracketSettings.style.display = 'block';
     }
-    
+
     // 타임 수 활성화
     const timeCountGroup = document.getElementById('time-count-group');
     const timeCountInput = document.getElementById('time-count');
     if (timeCountGroup) timeCountGroup.style.opacity = '1';
     if (timeCountInput) timeCountInput.disabled = false;
-    
+
     // 게임 그리드 생성
     generateManualGamesGrid();
-    
+
     // 기존 선택된 게임 타입 복원 (DOM 렌더링 후)
     setTimeout(() => {
         restoreManualGameTypeSelections();
@@ -666,18 +667,12 @@ function setupManualMode() {
 function setupRandomMode() {
     const conditionSettings = document.getElementById('condition-settings');
     const manualBracketSettings = document.getElementById('manual-bracket-settings');
-    
+    const gameTypeDistributionSection = document.getElementById('game-type-distribution-section');
+
     if (conditionSettings) {
         conditionSettings.innerHTML = `
             <label class="form-label">조건 설정</label>
             <div class="checkbox-group">
-                <label class="checkbox-option" id="gender-separate-option">
-                    <input type="checkbox" id="gender-separate" onchange="updateGenderWarning()">
-                    <span>성별 매칭 (남성끼리, 여성끼리 매칭)</span>
-                </label>
-                <div class="gender-warning" id="gender-warning" style="display: none;">
-                    <p class="warning-text">⚠️ 한가지 성별이 4명 이하인 경우에는 정상적으로 매칭되지 않을 수 있습니다.</p>
-                </div>
                 <label class="checkbox-option" id="skill-balance-option">
                     <input type="checkbox" id="skill-balance">
                     <span>실력 균형 (비슷한 실력끼리 매칭)</span>
@@ -686,24 +681,93 @@ function setupRandomMode() {
             <p class="info-text" id="condition-info">* 다음 단계에서 대진표가 나오면 수정이 가능합니다</p>
         `;
     }
-    
+
+    // 게임 타입 분배 섹션 표시 및 HTML 재구성
+    if (gameTypeDistributionSection) {
+        gameTypeDistributionSection.style.display = 'block';
+        // 모바일 친화적 레이아웃으로 재구성
+        const gameTypeDistribution = document.getElementById('game-type-distribution');
+        if (gameTypeDistribution) {
+            gameTypeDistribution.innerHTML = `
+                <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <div id="member-gender-summary" style="color: #666; font-size: 0.9em;">
+                        남성 0명, 여성 0명
+                    </div>
+                    <button type="button" onclick="autoCalculateDistribution()" style="padding: 8px 16px; font-size: 0.9em; background: #007bff; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;">🔄 자동 계산</button>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 18px;">
+                    <!-- 남복 -->
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <label style="font-weight: 600; font-size: 1em; color: #333;">남복</label>
+                            <span id="male-games-constraint" style="color: #999; font-size: 0.85em;">(최대 0)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" onclick="decrementGameCount('male-games')" style="flex: 0 0 48px; height: 48px; background: #f8f9fa; border: 2px solid #ddd; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center;">−</button>
+                            <input type="number" id="male-games" min="0" value="0" onchange="updateGameTypeDistribution()" oninput="updateGameTypeDistribution()" style="flex: 1; height: 48px; padding: 0 12px; border: 2px solid #007bff; border-radius: 8px; text-align: center; font-size: 1.3em; font-weight: 600; color: #333;">
+                            <button type="button" onclick="incrementGameCount('male-games')" style="flex: 0 0 48px; height: 48px; background: #007bff; border: 2px solid #007bff; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                            <span style="flex: 0 0 40px; color: #666; font-size: 0.95em;">게임</span>
+                        </div>
+                    </div>
+                    <!-- 여복 -->
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <label style="font-weight: 600; font-size: 1em; color: #333;">여복</label>
+                            <span id="female-games-constraint" style="color: #999; font-size: 0.85em;">(최대 0)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <button type="button" onclick="decrementGameCount('female-games')" style="flex: 0 0 48px; height: 48px; background: #f8f9fa; border: 2px solid #ddd; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: #666; cursor: pointer; display: flex; align-items: center; justify-content: center;">−</button>
+                            <input type="number" id="female-games" min="0" value="0" onchange="updateGameTypeDistribution()" oninput="updateGameTypeDistribution()" style="flex: 1; height: 48px; padding: 0 12px; border: 2px solid #007bff; border-radius: 8px; text-align: center; font-size: 1.3em; font-weight: 600; color: #333;">
+                            <button type="button" onclick="incrementGameCount('female-games')" style="flex: 0 0 48px; height: 48px; background: #007bff; border: 2px solid #007bff; border-radius: 8px; font-size: 1.5em; font-weight: bold; color: white; cursor: pointer; display: flex; align-items: center; justify-content: center;">+</button>
+                            <span style="flex: 0 0 40px; color: #666; font-size: 0.95em;">게임</span>
+                        </div>
+                    </div>
+                    <!-- 혼복 -->
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <label style="font-weight: 600; font-size: 1em; color: #007bff;">혼복</label>
+                            <span style="color: #007bff; font-size: 0.85em;">(자동 계산)</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="flex: 1; height: 48px; padding: 0 12px; border: 2px solid #ddd; border-radius: 8px; background: #f0f0f0; display: flex; align-items: center; justify-content: center;">
+                                <span id="mixed-games" style="font-size: 1.3em; font-weight: 600; color: #666;">0</span>
+                            </div>
+                            <span style="flex: 0 0 40px; color: #666; font-size: 0.95em;">게임</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="distribution-validation" style="margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 0.9em;">
+                    ✅ 유효한 분배입니다
+                </div>
+            `;
+        }
+    }
+
     // 수동 브래킷 설정 섹션 숨김
     if (manualBracketSettings) {
         manualBracketSettings.style.display = 'none';
     }
-    
+
     // 타임 수 활성화
     const timeCountGroup = document.getElementById('time-count-group');
     const timeCountInput = document.getElementById('time-count');
     if (timeCountGroup) timeCountGroup.style.opacity = '1';
     if (timeCountInput) timeCountInput.disabled = false;
+
+    // 게임 타입 분배 자동 계산 (약간의 지연 후 DOM이 준비된 후)
+    setTimeout(() => {
+        if (typeof autoCalculateDistribution === 'function') {
+            autoCalculateDistribution();
+        }
+    }, 100);
 }
 
 // KDK 모드 설정 (수동 브래킷 설정 숨김)
 function setupKDKMode() {
     const conditionSettings = document.getElementById('condition-settings');
     const manualBracketSettings = document.getElementById('manual-bracket-settings');
-    
+    const gameTypeDistributionSection = document.getElementById('game-type-distribution-section');
+
     if (conditionSettings) {
         conditionSettings.innerHTML = `
             <label class="form-label">조건 설정</label>
@@ -716,12 +780,17 @@ function setupKDKMode() {
             <p class="info-text" id="condition-info">* KDK 방식은 5-10명만 가능하며, 각자 4경기씩 진행됩니다</p>
         `;
     }
-    
+
+    // 게임 타입 분배 섹션 숨김 (KDK는 고정 알고리즘)
+    if (gameTypeDistributionSection) {
+        gameTypeDistributionSection.style.display = 'none';
+    }
+
     // 수동 브래킷 설정 섹션 숨김
     if (manualBracketSettings) {
         manualBracketSettings.style.display = 'none';
     }
-    
+
     // 타임 수 비활성화 (KDK는 고정 4타임)
     const timeCountGroup = document.getElementById('time-count-group');
     const timeCountInput = document.getElementById('time-count');
