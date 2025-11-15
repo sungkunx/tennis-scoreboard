@@ -245,23 +245,22 @@ document.addEventListener('DOMContentLoaded', () => {
                                 timeInfo = 'Start Time: ' + hour + ':' + minute + '\\n';
                             }
 
-                            shareText += `=== ${roundTitle} ===\\n`;
+                            shareText += '=== ' + roundTitle + ' ===\\n';
                             if (timeInfo) {
                                 shareText += timeInfo;
                             }
 
                             roundBlock.querySelectorAll('.match-item').forEach(matchItem => {
-                                // "코트 1:" 부분을 제거하고 텍스트만 가져오기
                                 const fullText = matchItem.innerText;
                                 const matchContent = fullText.substring(fullText.indexOf(':') + 1).trim();
                                 const courtTitle = fullText.substring(0, fullText.indexOf(':'));
-                                shareText += \`\${courtTitle}: \${matchContent}\\n\`;
+                                shareText += courtTitle + ': ' + matchContent + '\\n';
                             });
                             
                             const restingPlayersDiv = roundBlock.querySelector('.resting-players');
                             if (restingPlayersDiv) {
                                 const restingText = restingPlayersDiv.innerText;
-                                shareText += \`\${restingText}\\n\`;
+                                shareText += restingText + '\\n';
                             }
                             shareText += '\\n';
                         });
