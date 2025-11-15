@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>테니스 대진표 생성기</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <style>
+        /* 기본 & 모바일 스타일 */
+        :root {
+            --primary-color: #007bff;
+            --secondary-color: #6c757d;
+            --light-color: #f8f9fa;
+            --dark-color: #343a40;
+            --danger-color: #dc3545;
+            --success-color: #28a745;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-color);
+            color: var(--dark-color);
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 15px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 2px solid #eee;
+            margin-bottom: 20px;
+        }
+        header h1 {
+            margin: 0;
+            color: var(--primary-color);
+            flex-grow: 1;
+            text-align: left;
+        }
+        #auth-container {
+            display: flex;
+            align-items: center;
+        }
+        #auth-btn, #settings-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 5px;
+        }
+        #settings-btn {
+            display: none; /* Initially hidden */
+            margin-right: 10px;
+        }
+        main {
+            background-color: #ffffff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        section {
+            margin-bottom: 25px;
+        }
+        h2, h3, h4 {
+            color: var(--dark-color);
+            margin-top: 0;
+        }
+        h2 { font-size: 1.4rem; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        h3 { font-size: 1.2rem; }
+        h4 { font-size: 1.1rem; }
+
+        /* 폼 스타일 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        input[type="text"],
+        input[type="number"],
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .player-row {
+            display: grid;
+            grid-template-columns: 30px 1fr 100px 80px 40px;
+            gap: 8px;
+            align-items: center;
+        }
+        .player-row input, .player-row select {
+            padding: 8px;
+            font-size: 0.9rem;
+        }
+        .player-number {
+            font-weight: bold;
+            color: #0056b3;
+            text-align: center;
+        }
+        .btn {
+            display: inline-block;
+            width: 100%;
+            padding: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-success { background-color: var(--success-color); }
+        .btn-sm { padding: 8px 12px; font-size: 0.9rem; }
+        .btn-xs { padding: 4px 8px; font-size: 0.8rem; width: auto; }
+
+        /* 결과 표시 */
+        #schedule-result { margin-top: 20px; }
+        .round { margin-bottom: 20px; border: 1px solid #ddd; border-radius: 5px; overflow: hidden; }
+        .round-title { background-color: var(--dark-color); color: #fff; padding: 10px 15px; font-weight: 600; }
+        .match { padding: 15px; border-bottom: 1px solid #eee; }
+        .match:last-child { border-bottom: none; }
+        .match-info { font-weight: 600; margin-bottom: 8px; }
+        .team { display: flex; justify-content: space-between; align-items: center; }
+        .team-vs { font-weight: 600; color: var(--danger-color); margin: 0 10px; }
+        .player-tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.9rem; margin: 2px; }
+        .player-male { background-color: #e6f2ff; color: #0056b3; }
+        .player-female { background-color: #ffe6e6; color: #b30000; }
+        .resting-players { padding: 10px 15px; background-color: #f9f9f9; font-style: italic; color: var(--secondary-color); }
+
+        /* 로딩 스피너 */
+        #loading { display: none; text-align: center; padding: 20px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* 숫자 입력 Stepper UI */
+        .input-group-stepper { display: flex; align-items: center; }
+        .input-group-stepper input { text-align: center; border-left: none; border-right: none; }
+        .input-group-stepper .btn-stepper { width: 40px; flex-shrink: 0; padding: 10px; margin-top: 0; }
+        .input-group-stepper .btn-stepper:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .input-group-stepper .btn-stepper:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+        #num-mixed { background-color: #e9ecef; }
+
+        /* Modals */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal.is-open { display: block; }
+        .modal-content {
+            background-color: #fefefe;
+            margin: 10% auto;
+            padding: 0;
+            border: 1px solid #888;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #ddd; }
+        .modal-footer { padding: 15px; border-top: 1px solid #ddd; background-color: #f9f9f9; }
+        .modal-body { padding: 15px; overflow-y: auto; }
+        .close-button { color: #aaa; float: right; font-size: 28px; font-weight: bold; }
+        .close-button:hover, .close-button:focus { color: black; text-decoration: none; cursor: pointer; }
+        
+        /* Members Modal Specific Styles */
+        #members-modal .modal-body { padding: 0 15px; }
+        #saved-members-list { margin-bottom: 15px; }
+        .member-item {
+            display: grid;
+            grid-template-columns: auto 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .member-item:last-child { border-bottom: none; }
+        .member-item-info { display: flex; flex-direction: column; }
+        .member-item-info span { font-size: 0.9rem; color: #555; }
+        .member-item-actions { display: flex; gap: 5px; }
+        .member-item-actions .btn-xs { font-size: 1rem; padding: 5px; line-height: 1; }
+
+        #new-member-form {
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        .gender-btn-group { display: flex; gap: 5px; }
+        .gender-btn-group .btn { width: auto; flex-grow: 1; }
+        .gender-btn-group .btn.active { background-color: var(--primary-color); color: white; }
+        .gender-btn-group .btn:not(.active) { background-color: #ddd; color: #333; }
+        #load-members-btn { background-color: #0056b3; } /* Darker blue for load members button */
+
+        /* CSV Import Modal for Members */
+        #csv-import-modal-for-members .modal-content { z-index: 1001; } /* Ensure it appears on top */
+        #csv-textarea-members { height: 150px; font-family: monospace; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>🎾 Tennis Draw Manager</h1>
+            <div id="auth-container">
+                <button id="settings-btn">🗑️</button>
+                <button id="auth-btn">🔑</button>
+            </div>
+        </header>
+
+        <main>
+            <p style="margin-bottom: 20px; color: #555; font-size: 0.95rem;">
+                이 도구는 테니스 모임의 게임 대진표를 효율적으로 생성하고 관리하기 위해 만들어졌습니다.<br>
+                참가자 정보와 게임 설정을 입력하고 최적의 대진표를 만들어보세요.
+            </p>
+            <section id="participant-setup">
+                <h2>참여 인원 설정</h2>
+                <button id="load-members-btn" class="btn btn-secondary" style="margin-bottom: 10px; display: none;">👥 저장된 멤버 불러오기</button>
+                <button id="csv-import-btn" class="btn btn-secondary" style="margin-bottom: 10px;">📋 CSV로 참여인원 입력</button>
+                <div id="csv-input-area" style="display: none; margin-bottom: 15px;">
+                    <textarea id="csv-textarea" placeholder="이름,성별,실력&#10;홍길동,M,3&#10;김영희,F,4&#10;&#10;성별: M(남자), F(여자)&#10;실력: 1(최하) ~ 5(최상)" style="width: 100%; height: 120px; padding: 10px; font-family: monospace; font-size: 0.9rem; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box;"></textarea>
+                    <button id="csv-apply-btn" class="btn" style="margin-top: 5px;">CSV 적용</button>
+                </div>
+                <div id="player-list-container" class="player-list">
+                    </div>
+                <button id="add-player-btn" class="btn btn-secondary">➕ 선수 추가</button>
+            </section>
+
+            <section id="game-setup">
+                <h2>게임 설정</h2>
+                <div class="form-group">
+                    <label for="num-courts">코트 수</label>
+                    <input type="number" id="num-courts" value="2" min="1">
+                </div>
+                <div class="form-group">
+                    <label for="num-rounds">총 라운드 (타임) 수</label>
+                    <input type="number" id="num-rounds" value="5" min="1">
+                </div>
+
+                <div id="recommendation-box" style="background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin-top: 15px; display: none;">
+                    <h3 style="margin-top: 0; font-size: 1rem; color: #0066cc;">추천 게임 구성</h3>
+                    <div id="recommendation-content"></div>
+
+                    <button id="optimize-btn" class="btn" style="margin-top: 10px; background-color: #28a745;">
+                        ⚡ 최적 게임 구성 자동 계산
+                    </button>
+                    <div id="optimize-result" style="margin-top: 10px; padding: 10px; background-color: #d4edda; border-radius: 5px; display: none;">
+                        <small id="optimize-message"></small>
+                    </div>
+
+                    <h3 style="margin-top: 15px; margin-bottom: 10px; font-size: 1rem; color: #0066cc;">게임 구성 조정</h3>
+                    <div class="form-group">
+                        <label for="num-mixed">혼합 복식 수 (자동 계산)</label>
+                        <div class="input-group-stepper">
+                            <input type="number" id="num-mixed" value="0" min="0" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="num-mens">남자 복식 수</label>
+                        <div class="input-group-stepper">
+                            <button type="button" class="btn btn-secondary btn-stepper" data-step-down="num-mens">-</button>
+                            <input type="number" id="num-mens" value="0" min="0">
+                            <button type="button" class="btn btn-secondary btn-stepper" data-step-up="num-mens">+</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="num-womens">여자 복식 수</label>
+                        <div class="input-group-stepper">
+                            <button type="button" class="btn btn-secondary btn-stepper" data-step-down="num-womens">-</button>
+                            <input type="number" id="num-womens" value="0" min="0">
+                            <button type="button" class="btn btn-secondary btn-stepper" data-step-up="num-womens">+</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <button id="generate-btn" class="btn">▼ 대진표 생성하기 ▼</button>
+
+            <div id="loading">
+                <div class="spinner"></div>
+                알고리즘이 최적의 대진표를 계산 중입니다...
+            </div>
+
+            <section id="schedule-result">
+                </section>
+
+            <section id="player-statistics" style="display: none; margin-top: 20px;">
+                </section>
+
+            <section id="share-section" style="display: none; margin-top: 20px;">
+                <button id="share-btn" class="btn">📤 대진표 공유하기</button>
+            </section>
+
+
+        </main>
+    </div>
+
+    <script type="module" src="main.js"></script>
+
+    <!-- Player Swap Modal -->
+    <div id="swap-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="swap-modal-title">선수 교체</h3>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>교체할 휴식 선수를 선택하세요.</p>
+                <div id="swap-modal-resting-list" class="resting-player-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>모임 코드로 로그인</h3>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>모임 코드를 입력하세요. 코드가 없으면 새로 생성됩니다.</p>
+                <input type="text" id="group-code-input" placeholder="모임 코드를 입력하세요">
+            </div>
+            <div class="modal-footer">
+                <button id="login-submit-btn" class="btn">로그인 / 생성</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Member Management Modal -->
+    <div id="members-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>멤버 관리</h3>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; padding: 10px 0;">
+                    <input type="checkbox" id="select-all-members" style="width: auto;">
+                    <label for="select-all-members" style="margin: 0; font-weight: normal;">전체 선택</label>
+                </div>
+                <div id="saved-members-list"></div>
+                
+                <div id="new-member-form">
+                    <h4>새 멤버 추가</h4>
+                    <div class="form-group">
+                        <input type="text" id="new-member-name" placeholder="이름">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px;">
+                        <div class="gender-btn-group">
+                            <button class="btn btn-sm active" data-gender="M">남성</button>
+                            <button class="btn btn-sm" data-gender="F">여성</button>
+                        </div>
+                        <select id="new-member-skill" style="width: auto; flex-grow: 1;">
+                            <option value="1">최하</option>
+                            <option value="2">하</option>
+                            <option value="3" selected>중</option>
+                            <option value="4">상</option>
+                            <option value="5">최상</option>
+                        </select>
+                        <button id="add-new-member-btn" class="btn btn-sm btn-success">추가</button>
+                    </div>
+                     <button id="csv-import-members-btn" class="btn btn-secondary btn-sm" style="width: 100%; margin-top: 10px;">CSV로 멤버 일괄 추가</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="add-selected-members-btn" class="btn">선택한 멤버를 참여인원에 추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV Import Modal for Members -->
+    <div id="csv-import-modal-for-members" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>CSV로 멤버 추가</h3>
+                <span class="close-button">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p>아래 형식에 맞춰 멤버 정보를 입력해주세요.</p>
+                <textarea id="csv-textarea-members" placeholder="이름,성별,실력&#10;홍길동,M,3&#10;김영희,F,4"></textarea>
+            </div>
+            <div class="modal-footer">
+                 <button type="button" class="btn btn-secondary" data-action="close-csv-modal">취소</button>
+                <button id="csv-apply-members-btn" class="btn">적용</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
