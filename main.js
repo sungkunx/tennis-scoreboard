@@ -281,46 +281,6 @@ document.addEventListener('DOMContentLoaded', () => {
         shareWindow.document.close();
     });
 
-    function handlePlayerSwap(e) {
-        const button = e.target.closest('.player-button');
-        if (!button) return;
-        const { playerId, roundIndex, matchIndex, teamIndex, playerIndex } = button.dataset;
-        const round = lastGeneratedSchedule[roundIndex];
-        const match = round.matches[matchIndex];
-        const team = teamIndex == 0 ? match.team1 : match.team2;
-        const playerToSwap = team[playerIndex];
-        const restingPlayers = round.restingPlayers;
-        if (restingPlayers.length === 0) {
-            alert("교체할 휴식 선수가 없습니다.");
-            return;
-        }
-        const modal = document.getElementById('swap-modal');
-        const modalTitle = document.getElementById('swap-modal-title');
-        const restingList = document.getElementById('swap-modal-resting-list');
-        const closeButton = modal.querySelector('.close-button');
-        modalTitle.textContent = `${playerToSwap.name} 선수와 교체`;
-        restingList.innerHTML = restingPlayers.map(p => `<button class="player-tag ${p.gender === 'male' ? 'player-male' : 'player-female'} swap-option" data-swap-player-id="${p.id}">${p.name}</button>`).join('');
-        openModal(modal);
-        closeButton.onclick = () => {
-            closeModal(modal);
-        };
-        modal.querySelectorAll('.swap-option').forEach(option => {
-            option.onclick = () => {
-                const swapPlayerId = option.dataset.swapPlayerId;
-                const playerMap = new Map(lastPlayerList.map(p => [p.id, p]));
-                const newPlayer = playerMap.get(swapPlayerId);
-                const originalPlayer = playerToSwap;
-                team[playerIndex] = newPlayer;
-                const newRestingPlayers = restingPlayers.filter(p => p.id !== newPlayer.id);
-                newRestingPlayers.push(originalPlayer);
-                round.restingPlayers = newRestingPlayers;
-                displaySchedule(lastGeneratedSchedule, lastPlayerList);
-                displayStatistics(lastPlayerList, lastGeneratedSchedule);
-                closeModal(modal);
-            };
-        });
-    }
-
     function updateGameCounts(event) {
         const numCourts = parseInt(numCourtsInput.value) || 0;
         const numRounds = parseInt(numRoundsInput.value) || 0;

@@ -307,36 +307,94 @@ export function updateRecommendation() {
 export function handlePlayerSwap(e, lastGeneratedSchedule, lastPlayerList) {
     const button = e.target.closest('.player-button');
     if (!button) return;
-    const { playerId, roundIndex, matchIndex, teamIndex, playerIndex } = button.dataset;
+
+    const { roundIndex, matchIndex, teamIndex, playerIndex } = button.dataset;
     const round = lastGeneratedSchedule[roundIndex];
     const match = round.matches[matchIndex];
     const team = teamIndex == 0 ? match.team1 : match.team2;
     const playerToSwap = team[playerIndex];
+
+    // 1. Categorize all other players
     const restingPlayers = round.restingPlayers;
-    if (restingPlayers.length === 0) {
-        alert("교체할 휴식 선수가 없습니다.");
+    const playersInMatches = round.matches.flatMap(m => [...m.team1, ...m.team2]);
+    const playingPlayers = playersInMatches.filter(p => p.id !== playerToSwap.id);
+
+    if (restingPlayers.length === 0 && playingPlayers.length === 0) {
+        alert("교체할 다른 선수가 없습니다.");
         return;
     }
+
+    // 2. Generate new modal content with separated groups
     const modal = document.getElementById('swap-modal');
     const modalTitle = document.getElementById('swap-modal-title');
-    const restingList = document.getElementById('swap-modal-resting-list');
+    const restingListContainer = document.getElementById('swap-modal-resting-list');
     const closeButton = modal.querySelector('.close-button');
+
     modalTitle.textContent = `${playerToSwap.name} 선수와 교체`;
-    restingList.innerHTML = restingPlayers.map(p => `<button class="player-tag ${p.gender === 'male' ? 'player-male' : 'player-female'} swap-option" data-swap-player-id="${p.id}">${p.name}</button>`).join('');
+
+    let modalHTML = '';
+    if (restingPlayers.length > 0) {
+        modalHTML += '<h4>휴식 중인 선수</h4>';
+        modalHTML += restingPlayers.map(p => 
+            `<button class="player-tag ${p.gender === 'male' ? 'player-male' : 'player-female'} swap-option" data-swap-player-id="${p.id}" data-is-resting="true">${p.name}</button>`
+        ).join('');
+    }
+    if (playingPlayers.length > 0) {
+        modalHTML += '<h4 style="margin-top: 15px;">경기 중인 선수</h4>';
+        modalHTML += playingPlayers.map(p => 
+            `<button class="player-tag ${p.gender === 'male' ? 'player-male' : 'player-female'} swap-option" data-swap-player-id="${p.id}" data-is-resting="false">${p.name}</button>`
+        ).join('');
+    }
+    restingListContainer.innerHTML = modalHTML;
+
     openModal(modal);
-    closeButton.onclick = () => {
-        closeModal(modal);
-    };
+
+    // 3. Handle new swap logic
+    closeButton.onclick = () => closeModal(modal);
+
     modal.querySelectorAll('.swap-option').forEach(option => {
         option.onclick = () => {
             const swapPlayerId = option.dataset.swapPlayerId;
-            const playerMap = new Map(lastPlayerList.map(p => [p.id, p]));
-            const newPlayer = playerMap.get(swapPlayerId);
-            const originalPlayer = playerToSwap;
-            team[playerIndex] = newPlayer;
-            const newRestingPlayers = restingPlayers.filter(p => p.id !== newPlayer.id);
-            newRestingPlayers.push(originalPlayer);
-            round.restingPlayers = newRestingPlayers;
+            const isResting = option.dataset.isResting === 'true';
+
+            if (isResting) {
+                // --- Logic for swapping with a RESTING player ---
+                const playerMap = new Map(lastPlayerList.map(p => [p.id, p]));
+                const newPlayer = playerMap.get(swapPlayerId);
+                
+                // Update match
+                team[playerIndex] = newPlayer;
+                
+                // Update resting players
+                const newRestingPlayers = restingPlayers.filter(p => p.id !== newPlayer.id);
+                newRestingPlayers.push(playerToSwap);
+                round.restingPlayers = newRestingPlayers;
+
+            } else {
+                // --- Logic for swapping with a PLAYING player ---
+                let otherPlayerLocation = null;
+                round.matches.forEach((m, mi) => {
+                    m.team1.forEach((p, pi) => {
+                        if (p.id === swapPlayerId) otherPlayerLocation = { matchIndex: mi, teamIndex: 0, playerIndex: pi };
+                    });
+                    if (otherPlayerLocation) return;
+                    m.team2.forEach((p, pi) => {
+                        if (p.id === swapPlayerId) otherPlayerLocation = { matchIndex: mi, teamIndex: 1, playerIndex: pi };
+                    });
+                });
+
+                if (otherPlayerLocation) {
+                    const otherMatch = round.matches[otherPlayerLocation.matchIndex];
+                    const otherTeam = otherPlayerLocation.teamIndex === 0 ? otherMatch.team1 : otherMatch.team2;
+                    const otherPlayer = otherTeam[otherPlayerLocation.playerIndex];
+
+                    // Perform the swap
+                    team[playerIndex] = otherPlayer;
+                    otherTeam[otherPlayerLocation.playerIndex] = playerToSwap;
+                }
+            }
+
+            // 4. Refresh UI and close modal
             displaySchedule(lastGeneratedSchedule, lastPlayerList);
             displayStatistics(lastPlayerList, lastGeneratedSchedule);
             closeModal(modal);
