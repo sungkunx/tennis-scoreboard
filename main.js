@@ -242,7 +242,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (hourSelect && minuteSelect && hourSelect.value !== '' && minuteSelect.value !== '') {
                                 const hour = String(hourSelect.value).padStart(2, '0');
                                 const minute = String(minuteSelect.value).padStart(2, '0');
-                                timeInfo = `Start Time: ${hour}:${minute}\\n`;
+                                timeInfo = 'Start Time: ' + hour + ':' + minute + '\\n';
                             }
 
                             shareText += `=== ${roundTitle} ===\\n`;
